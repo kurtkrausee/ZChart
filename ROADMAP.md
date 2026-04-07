@@ -15,13 +15,13 @@
 
 ## Phase 3: Basis-Rendering & Hintergrund
 - [x] `AxisNode` implementieren: Zeichnen der X- und Y-Achsen (Striche und Text).
-- [ ] Zeichnen des horizontalen und vertikalen Hintergrund-Rasters (Grid).
-- [ ] Zentrale Farb- und Style-Konfiguration (`ChartOptions`) anlegen.
+- [x] Zeichnen des horizontalen und vertikalen Hintergrund-Rasters (Grid).
+- [x] Zentrale Farb- und Style-Konfiguration (`ChartOptions`) anlegen.
 
 ## Phase 4: Datenintegration & Kerzen
-- [ ] `DataStore` implementieren und mit Dummy-JSON füttern.
-- [ ] Abstrakte `SceneNode` definieren (`draw()` und `hitTest()` Methoden).
-- [ ] `CandlestickNode` programmieren (Berechnung von Dochten und Körpern basierend auf den Scales).
+- [x] `DataStore` implementieren und mit Dummy-JSON füttern.
+- [x] Abstrakte `SceneNode` definieren (`draw()` und `hitTest()` Methoden).
+- [x] `CandlestickNode` programmieren (Berechnung von Dochten und Körpern basierend auf den Scales).
 
 ## Phase 5: Interaktion (Navigation)
 - [ ] `InputManager` aufsetzen (Maus- und Touch-Events).

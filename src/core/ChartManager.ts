@@ -8,6 +8,8 @@ import { defaultOptions, mergeOptions } from './ChartOptions';
 import type { ChartConfig, DeepPartial } from './ChartOptions';
 import { YAxisNode } from '../nodes/YAxisNode';
 import { XAxisNode } from '../nodes/XAxisNode';
+import { DataStore } from '../data/DataStore';
+import { CandlestickNode } from '../nodes/CandlestickNode';
 
 export class ChartManager {
   private canvas: HTMLCanvasElement;
@@ -25,6 +27,10 @@ export class ChartManager {
   // Aufteilung in X- und Y-Achsen
   private yAxisNode: YAxisNode = new YAxisNode();
   private xAxisNode: XAxisNode = new XAxisNode(); 
+
+  // NEU: Ein spezieller Node für die Candlesticks, der Zugriff auf die Daten hat
+  private dataStore: DataStore = new DataStore();
+  private candlestickNode: CandlestickNode = new CandlestickNode(this.dataStore);
   
   // NEU: Der Konstruktor akzeptiert nun optionale userOptions für individuelle Themes
   constructor(containerId: string, userOptions?: DeepPartial<ChartConfig>) {
@@ -147,40 +153,40 @@ export class ChartManager {
         this.options
     );
 
-      // --- SPEZIFISCHE LOGIK PRO PANE (Kerzen/Linien) ---
+      // --- SPEZIFISCHE LOGIK PRO PANE ---
       if (pane.id === 'main') {
-        const totalCandles = 500;
+        const totalCandles = this.dataStore.getAllData().length;
         const { start, end } = this.timeScale.getVisibleRange(totalCandles);
+        const visibleData = this.dataStore.getVisibleData(start, end);
 
-        // Auto-Scaling
+        // Auto-Scaling mit den ECHTEN Kerzen-Daten
         let min = Infinity; let max = -Infinity;
-        for (let i = start; i <= end; i++) {
-          const pHigh = 50 + Math.sin(i * 0.1) * 30;
-          const pLow = pHigh - 10;
-          if (pHigh > max) max = pHigh; if (pLow < min) min = pLow;
+        for (const candle of visibleData) {
+          if (candle.high > max) max = candle.high;
+          if (candle.low < min) min = candle.low;
         }
+        
+        // Fallback, falls keine Daten da sind
+        if (min === Infinity) { min = 0; max = 100; }
+        
         const padding = (max - min) * 0.1;
         pane.priceScale.setRange(min - padding, max + padding);
 
-        // Zeichnen der blauen Linien (mit Schutzbereich für die Achse)
+        // Zeichnen der echten Kerzen (ersetzt die blauen Linien)
         this.ctx.save();
-        // Clipping: Alles was rechts von chartContentWidth gezeichnet wird, wird unsichtbar
+        
+        // Clipping-Maske
         this.ctx.beginPath();
         this.ctx.rect(0, currentY, chartContentWidth, paneHeight);
         this.ctx.clip();
-
-        this.ctx.strokeStyle = '#3b99fc';
-        for (let i = start; i <= end; i++) {
-          const x = this.timeScale.indexToX(i);
-          const yStart = pane.priceScale.priceToY(50 + Math.sin(i * 0.1) * 30);
-          const yEnd = pane.priceScale.priceToY(50 + Math.sin(i * 0.1) * 30 - 10);
-
-          this.ctx.beginPath();
-          this.ctx.moveTo(x, currentY + yStart);
-          this.ctx.lineTo(x, currentY + yEnd);
-          this.ctx.stroke();
-        }
-        this.ctx.restore(); // Clipping aufheben
+        
+        // Wir verschieben den Canvas-Nullpunkt temporär nach unten in die aktuelle Pane
+        this.ctx.translate(0, currentY);
+        
+        // Aufruf unseres neuen Pinsels
+        this.candlestickNode.draw(this.ctx, this.timeScale, pane.priceScale, this.options);
+        
+        this.ctx.restore(); // Clipping und Verschiebung aufheben
       }
 
       // Rahmen um die Pane zur Kontrolle (nur bis zur Achse)
