@@ -24,10 +24,10 @@
 - [x] `CandlestickNode` programmieren (Berechnung von Dochten und Körpern basierend auf den Scales).
 
 ## Phase 5: Interaktion (Navigation)
-- [ ] `InputManager` aufsetzen (Maus- und Touch-Events).
-- [ ] Panning: X-Achse verschieben (Klick & Drag auf dem Chart).
-- [ ] Zooming X: Mausrad auf dem Chart (Hinein-/Herauszoomen auf der Zeitachse).
-- [ ] Zooming Y: Klick & Drag auf der Preis-Achse rechts (Stauchen/Strecken).
+- [x] `InputManager` aufsetzen (Maus- und Touch-Events).
+- [x] Panning: X-Achse verschieben (Klick & Drag auf dem Chart).
+- [x] Zooming X: Mausrad auf dem Chart (Hinein-/Herauszoomen auf der Zeitachse).
+- [x] Zooming Y: Klick & Drag auf der Preis-Achse rechts (Stauchen/Strecken).
 
 ## Phase 6: Das Fadenkreuz (Crosshair)
 - [ ] `CrosshairNode` implementieren (horizontale und vertikale Linien, die der Maus folgen).
