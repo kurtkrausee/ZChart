@@ -3,8 +3,11 @@
 import { Pane } from './Pane';
 import { TimeScale } from '../math/TimeScale';
 import { PriceScale } from '../math/PriceScale';
-import { ChartOptions } from './ChartOptions';
-import { AxisNode } from '../nodes/AxisNode';
+// NEU: Importiere die neuen Konfigurations-Typen und die Merge-Funktion
+import { defaultOptions, mergeOptions } from './ChartOptions';
+import type { ChartConfig, DeepPartial } from './ChartOptions';
+import { YAxisNode } from '../nodes/YAxisNode';
+import { XAxisNode } from '../nodes/XAxisNode';
 
 export class ChartManager {
   private canvas: HTMLCanvasElement;
@@ -12,14 +15,25 @@ export class ChartManager {
   private container: HTMLElement;
   private panes: Pane[] = [];
   private dpr: number = window.devicePixelRatio || 1;
+  
+  // NEU: Hier speichern wir die finalen, zusammengeführten Optionen für diese Instanz
+  private options: ChartConfig;
+
   // WICHTIG: Diese Zeile muss oben stehen, damit "this.timeScale" gefunden wird!
   private timeScale: TimeScale = new TimeScale();
-  private axisNode: AxisNode = new AxisNode(); // <-- NEU: Hier erstellen wir die AxisNode-Instanz
 
-  constructor(containerId: string) {
+  // Aufteilung in X- und Y-Achsen
+  private yAxisNode: YAxisNode = new YAxisNode();
+  private xAxisNode: XAxisNode = new XAxisNode(); 
+  
+  // NEU: Der Konstruktor akzeptiert nun optionale userOptions für individuelle Themes
+  constructor(containerId: string, userOptions?: DeepPartial<ChartConfig>) {
     const container = document.getElementById(containerId);
     if (!container) throw new Error(`Container #${containerId} nicht gefunden.`);
     this.container = container;
+
+    // NEU: Standardwerte mit eventuellen Nutzerwerten verschmelzen
+    this.options = mergeOptions(defaultOptions, userOptions);
 
     this.canvas = document.createElement('canvas');
     this.ctx = this.canvas.getContext('2d', { alpha: false })!; // Performance-Boost: Kein Alpha
@@ -27,6 +41,17 @@ export class ChartManager {
 
     this.setupResizing();
     this.startRenderLoop();
+  }
+
+  // NEU: Methode, um das Theme im laufenden Betrieb zu ändern (z.B. Light/Dark-Mode)
+  public applyOptions(newOptions: DeepPartial<ChartConfig>) {
+    this.options = mergeOptions(this.options, newOptions);
+    // Das Canvas zeichnet sich durch den Render-Loop automatisch mit den neuen Farben neu
+  }
+
+  // NEU: Hilfsmethode, damit Panes und Nodes auf die Konfiguration zugreifen können
+  public getOptions(): ChartConfig {
+    return this.options;
   }
 
   private setupResizing() {
@@ -64,65 +89,85 @@ export class ChartManager {
     requestAnimationFrame(loop);
   }
 
-private render() {
-    // Hier holen wir uns die aktuelle Größe des Canvas
+  private render() {
     const rect = this.canvas.getBoundingClientRect();
     const width = rect.width;
     const height = rect.height;
 
-    // 1. Hintergrund löschen
-    this.ctx.fillStyle = ChartOptions.colors.background;
+    // Bereich ohne die rechte Preisachse berechnen (greift jetzt auf this.options zu)
+    const chartContentWidth = width - this.options.layout.axisWidth;
+
+    // 1. Hintergrund löschen (komplett)
+    this.ctx.fillStyle = this.options.colors.background;
     this.ctx.fillRect(0, 0, width, height);
 
-    // 2. Vertikales Grid (Zeit) - Geht über die volle Höhe
-    const { start: visibleStart, end: visibleEnd } = this.timeScale.getVisibleRange(500);
-    this.ctx.strokeStyle = ChartOptions.colors.grid;
-    this.ctx.lineWidth = 1;
+    // 2. TimeScale über die nutzbare Breite informieren
+    this.timeScale.width = chartContentWidth;
 
-    for (let i = visibleStart; i <= visibleEnd; i++) {
-      if (i % 10 === 0) {
-        const x = this.timeScale.indexToX(i);
-        this.ctx.beginPath();
-        this.ctx.moveTo(x, 0);
-        this.ctx.lineTo(x, height);
-        this.ctx.stroke();
+    // 3. Vertikales Grid (Zeit)
+    const { start: visibleStart, end: visibleEnd } = this.timeScale.getVisibleRange(500);
+    this.ctx.strokeStyle = this.options.colors.grid;
+    this.ctx.lineWidth = this.options.grid.verticalLines.lineWidth;
+
+    if (this.options.grid.verticalLines.visible) {
+      for (let i = visibleStart; i <= visibleEnd; i++) {
+        if (i % 10 === 0) {
+          const x = this.timeScale.indexToX(i);
+          this.ctx.beginPath();
+          this.ctx.moveTo(x, 0);
+          this.ctx.lineTo(x, height);
+          this.ctx.stroke();
+        }
       }
     }
 
     let currentY = 0;
 
-    // 3. Durch jede Pane gehen und zeichnen
+    // 4. Durch jede Pane gehen
     this.panes.forEach(pane => {
-      const paneHeight = height * pane.heightWeight; // Jetzt ist paneHeight definiert
-      // Scale über aktuelle Höhe informieren
+      const paneHeight = height * pane.heightWeight;
       pane.priceScale.height = paneHeight;
 
-      // --- Horizontales Grid (Preise) & Labels pro Pane ---
-      this.axisNode.drawPriceAxis(
+      // --- Zeichne Preisachse & Hintergrund-Streifen rechts ---
+      this.yAxisNode.draw(
         this.ctx,
         paneHeight,
         pane.priceScale,
         width,
-        currentY
+        currentY,
+        this.options // NEU: Optionen an die AxisNode weitergeben
       );
 
-      // --- SPEZIFISCHE LOGIK PRO PANE ---
+      // --- Zeichne Zeitachse unten ---
+      this.xAxisNode.draw(
+        this.ctx,
+        chartContentWidth,
+        height,
+        this.timeScale,
+        this.options
+    );
+
+      // --- SPEZIFISCHE LOGIK PRO PANE (Kerzen/Linien) ---
       if (pane.id === 'main') {
         const totalCandles = 500;
         const { start, end } = this.timeScale.getVisibleRange(totalCandles);
 
-        // --- AUTO-SCALING LOGIK START ---
+        // Auto-Scaling
         let min = Infinity; let max = -Infinity;
-
         for (let i = start; i <= end; i++) {
           const pHigh = 50 + Math.sin(i * 0.1) * 30;
           const pLow = pHigh - 10;
           if (pHigh > max) max = pHigh; if (pLow < min) min = pLow;
         }
-
         const padding = (max - min) * 0.1;
         pane.priceScale.setRange(min - padding, max + padding);
-        // --- AUTO-SCALING LOGIK ENDE ---
+
+        // Zeichnen der blauen Linien (mit Schutzbereich für die Achse)
+        this.ctx.save();
+        // Clipping: Alles was rechts von chartContentWidth gezeichnet wird, wird unsichtbar
+        this.ctx.beginPath();
+        this.ctx.rect(0, currentY, chartContentWidth, paneHeight);
+        this.ctx.clip();
 
         this.ctx.strokeStyle = '#3b99fc';
         for (let i = start; i <= end; i++) {
@@ -135,14 +180,14 @@ private render() {
           this.ctx.lineTo(x, currentY + yEnd);
           this.ctx.stroke();
         }
+        this.ctx.restore(); // Clipping aufheben
       }
 
-      // Rahmen um die Pane zur Kontrolle
-      this.ctx.strokeStyle = ChartOptions.colors.axisLine;
-      this.ctx.strokeRect(0, currentY, width, paneHeight);
+      // Rahmen um die Pane zur Kontrolle (nur bis zur Achse)
+      this.ctx.strokeStyle = this.options.colors.axisLine;
+      this.ctx.strokeRect(0, currentY, chartContentWidth, paneHeight);
 
-      // Y-Position für die nächste Pane nach unten schieben
       currentY += paneHeight;
-    }); // <--- HIER schließt die forEach-Schleife korrekt!
+    });
   }
 }

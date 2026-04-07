@@ -14,7 +14,7 @@
 - [x] Auto-Scaling der Y-Achse basierend auf den aktuell sichtbaren Kerzen.
 
 ## Phase 3: Basis-Rendering & Hintergrund
-- [ ] `AxisNode` implementieren: Zeichnen der X- und Y-Achsen (Striche und Text).
+- [x] `AxisNode` implementieren: Zeichnen der X- und Y-Achsen (Striche und Text).
 - [ ] Zeichnen des horizontalen und vertikalen Hintergrund-Rasters (Grid).
 - [ ] Zentrale Farb- und Style-Konfiguration (`ChartOptions`) anlegen.
 
