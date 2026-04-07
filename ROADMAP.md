@@ -30,14 +30,17 @@
 - [x] Zooming Y: Klick & Drag auf der Preis-Achse rechts (Stauchen/Strecken).
 
 ## Phase 6: Das Fadenkreuz (Crosshair)
-- [ ] `CrosshairNode` implementieren (horizontale und vertikale Linien, die der Maus folgen).
-- [ ] Preis- und Zeit-Labels ("Tags") an den Achsen zeichnen, die den Maus-Positionen entsprechen.
-- [ ] Snapping-Logik (Fadenkreuz rastet auf der nächsten Kerze ein).
+- [x] `CrosshairNode` implementieren (horizontale und vertikale Linien, die der Maus folgen).
+- [x] Preis- und Zeit-Labels ("Tags") an den Achsen zeichnen, die den Maus-Positionen entsprechen.
+- [x] Snapping-Logik (Fadenkreuz rastet auf der nächsten Kerze ein).
 
 ## Phase 7: Indikatoren & Multi-Pane
-- [ ] Synchronisierung der X-Achse über mehrere Panes hinweg.
-- [ ] `LineSeriesNode` und `HistogramNode` für Indikatoren bauen.
-- [ ] Ersten Test-Indikator (z.B. Volumen oder RSI) in einer unteren Pane rendern.
+- [x] Architektur-Upgrade: Pane-Renderer-System (Nodes werden Panes zugewiesen, statt fest im Manager verbaut zu sein)
+- [x] `LineSeriesNode` und `HistogramNode` (Allzweck-Nodes für Indikatoren).
+- [x] RSI-Berechnung im DataStore oder IndicatorEngine.
+- [x] Ersten Test-Indikator (z.B. Volumen oder RSI) in einer unteren Pane rendern.
+- [] NEU: Format-Utility für Achsenbeschriftungen (Modular & Global einsetzbar).
+- [ ] NEU: Explizites Z-Layering (Vorbereitung für Zeichentools).
 
 ## Phase 8: Zeichentools & KLineChart-Brücke (Ausblick)
 - [ ] Hit-Testing-System für Linien und Formen (Klickt der User auf eine Linie?).

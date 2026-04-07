@@ -1,6 +1,5 @@
 // data/DataStore.ts
 
-// Vite importiert die JSON-Datei automatisch als JavaScript-Objekt/Array
 import sampleData from './ohlcv_sample_5000.json';
 
 export interface CandleData {
@@ -10,6 +9,7 @@ export interface CandleData {
   low: number;
   close: number;
   volume: number;
+  rsi?: number; // NEU: Das Fragezeichen bedeutet "optional"
 }
 
 export class DataStore {
@@ -30,9 +30,37 @@ export class DataStore {
   }
 
   private loadRealData() {
-    // Wir weisen die echten Daten einfach unserem Array zu.
-    // WICHTIG: Die JSON-Datei muss zwingend ein Array sein, in dem die Objekte 
-    // exakt die Schlüssel aus dem CandleData-Interface haben (time, open, high, low, close, volume).
     this.data = sampleData as CandleData[];
   }
-}
+
+  // --- DIE METHODE MUSS HIER REIN (vor die letzte Klammer) ---
+  public calculateRSI(period: number = 14) {
+    const data = this.data;
+    if (data.length <= period) return;
+
+    let gains = 0;
+    let losses = 0;
+
+    for (let i = 1; i <= period; i++) {
+      const diff = data[i].close - data[i - 1].close;
+      if (diff >= 0) gains += diff;
+      else losses -= diff;
+    }
+
+    let avgGain = gains / period;
+    let avgLoss = losses / period;
+
+    data[period].rsi = 100 - (100 / (1 + avgGain / avgLoss));
+
+    for (let i = period + 1; i < data.length; i++) {
+      const diff = data[i].close - data[i - 1].close;
+      const currentGain = diff >= 0 ? diff : 0;
+      const currentLoss = diff < 0 ? -diff : 0;
+
+      avgGain = (avgGain * (period - 1) + currentGain) / period;
+      avgLoss = (avgLoss * (period - 1) + currentLoss) / period;
+
+      data[i].rsi = 100 - (100 / (1 + avgGain / avgLoss));
+    }
+  }
+} // <--- Das ist die finale Klammer der Klasse

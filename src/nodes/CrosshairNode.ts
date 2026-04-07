@@ -20,7 +20,8 @@ export class CrosshairNode {
     // --- SNAPPING LOGIK ---
     // indexToX gibt die linke Kante. + candleWidth / 2 schiebt uns exakt in die Mitte!
     const index = timeScale.xToIndex(x);
-    const snappedX = timeScale.indexToX(index) + timeScale.candleWidth / 2;
+    
+    const snappedX = timeScale.indexToX(index);
 
     ctx.save();
     

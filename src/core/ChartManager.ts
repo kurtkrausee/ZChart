@@ -1,14 +1,12 @@
-// ChartManager.ts
+// core/ChartManager.ts
 
 import { Pane } from './Pane';
 import { TimeScale } from '../math/TimeScale';
-import { PriceScale } from '../math/PriceScale';
 import { defaultOptions, mergeOptions } from './ChartOptions';
 import type { ChartConfig, DeepPartial } from './ChartOptions';
 import { YAxisNode } from '../nodes/YAxisNode';
 import { XAxisNode } from '../nodes/XAxisNode';
 import { DataStore } from '../data/DataStore';
-import { CandlestickNode } from '../nodes/CandlestickNode';
 import { InputManager } from '../input/InputManager';
 import { CrosshairNode } from '../nodes/CrosshairNode';
 
@@ -20,23 +18,20 @@ export class ChartManager {
   private dpr: number = window.devicePixelRatio || 1;
   private isAutoScaling: boolean = true;
   
-  // Geändert auf public, damit der InputManager (via Interface) darauf zugreifen kann
   public options: ChartConfig;
 
-  // Mathematik & Daten
-  private timeScale: TimeScale = new TimeScale();
-  private dataStore: DataStore = new DataStore();
+  // Mathematik & Daten (dataStore ist jetzt public für die main.ts)
+  public timeScale: TimeScale = new TimeScale();
+  public dataStore: DataStore = new DataStore();
 
-  // Rendering-Nodes
+  // Globale Nodes (gelten für den ganzen Chart)
   private yAxisNode: YAxisNode = new YAxisNode();
   private xAxisNode: XAxisNode = new XAxisNode(); 
-  private candlestickNode: CandlestickNode = new CandlestickNode(this.dataStore);
-  private crosshairNode: CrosshairNode = new CrosshairNode(); // NEU
+  private crosshairNode: CrosshairNode = new CrosshairNode();
 
   // Interaktion
   private inputManager!: InputManager;
   private mousePos: { x: number, y: number } | null = null;
-  
 
   constructor(containerId: string, userOptions?: DeepPartial<ChartConfig>) {
     const container = document.getElementById(containerId);
@@ -44,7 +39,6 @@ export class ChartManager {
     this.container = container;
 
     this.container.innerHTML = '';
-
     this.options = mergeOptions(defaultOptions, userOptions);
 
     this.canvas = document.createElement('canvas');
@@ -54,12 +48,7 @@ export class ChartManager {
     this.setupResizing();
     this.startRenderLoop();
 
-    // 5. InputManager bekommt jetzt "this" (den ganzen Manager)
-    this.inputManager = new InputManager(
-      this.canvas, 
-      this.timeScale, 
-      this 
-    );
+    this.inputManager = new InputManager(this.canvas, this.timeScale, this);
   }
 
   // --- PUBLIC API ---
@@ -68,33 +57,49 @@ export class ChartManager {
     this.panes.push(pane);
   }
 
-  public applyOptions(newOptions: DeepPartial<ChartConfig>) {
-    this.options = mergeOptions(this.options, newOptions);
-  }
-
-  public getOptions(): ChartConfig {
-    return this.options;
-  }
-
   /**
-   * Wird vom InputManager aufgerufen, wenn an der Preisachse gezogen wird
+   * Automatische Skalierung für eine Pane berechnen.
+   * Aktuell noch mit einfacher Logik für Kerzen und Volumen.
    */
+  private autoScalePane(pane: Pane, start: number, end: number) {
+    const visibleData = this.dataStore.getVisibleData(start, end);
+    if (visibleData.length === 0) return;
+
+    // 1. Haupt-Chart (Preis)
+    if (pane.id === 'main') {
+      let min = Infinity; let max = -Infinity;
+      for (const candle of visibleData) {
+        if (candle.high > max) max = candle.high;
+        if (candle.low < min) min = candle.low;
+      }
+      const padding = (max - min) * 0.1;
+      pane.priceScale.setRange(min - padding, max + padding);
+    } 
+  
+    // 2. RSI (Immer 0 bis 100)
+    else if (pane.id === 'rsi') {
+      // Ein RSI geht mathematisch nie über 100 oder unter 0.
+      // Wir geben ihm 5% Padding, damit die Linie nicht am Rand klebt.
+      pane.priceScale.setRange(-5, 105);
+    }
+  
+    // 3. Volumen (Eigene Skala)
+    else if (pane.id === 'volume') {
+      let maxVol = 0;
+      for (const c of visibleData) if (c.volume > maxVol) maxVol = c.volume;
+      pane.priceScale.setRange(0, maxVol * 1.1); // 10% Puffer nach oben
+    }
+  }
+
+  public setMousePos(x: number | null, y: number | null) {
+    this.mousePos = (x === null || y === null) ? null : { x, y };
+  }
+
   public zoomPrice(deltaY: number) {
     const mainPane = this.panes.find(p => p.id === 'main');
     if (mainPane) {
       this.isAutoScaling = false; 
       mainPane.priceScale.zoom(deltaY);
-    }
-  }
-
-  /**
-   * Wird vom InputManager aufgerufen, um die Fadenkreuz-Position zu setzen
-   */
-  public setMousePos(x: number | null, y: number | null) {
-    if (x === null || y === null) {
-      this.mousePos = null;
-    } else {
-      this.mousePos = { x, y };
     }
   }
 
@@ -124,9 +129,6 @@ export class ChartManager {
     requestAnimationFrame(loop);
   }
 
-  /**
-   * Hilfsfunktion für Pane-Erkennung
-   */
   private getPaneAtY(y: number): { pane: Pane, localY: number } | null {
     let accumulatedY = 0;
     const logicalHeight = this.canvas.height / this.dpr;
@@ -146,26 +148,25 @@ export class ChartManager {
     const height = rect.height;
     const chartContentWidth = width - this.options.layout.axisWidth;
 
-    // 1. Hintergrund löschen
+    // 1. Hintergrund
     this.ctx.fillStyle = this.options.colors.background;
     this.ctx.fillRect(0, 0, width, height);
 
     this.timeScale.width = chartContentWidth;
 
-    // 2. Vertikales Grid
+    // 2. Grid & Sichtbarer Bereich
     const totalDataCount = this.dataStore.getAllData().length;
-    const { start: visibleStart, end: visibleEnd } = this.timeScale.getVisibleRange(totalDataCount);
+    const { start, end } = this.timeScale.getVisibleRange(totalDataCount);
     
+    // Einfaches vertikales Grid
     this.ctx.strokeStyle = this.options.colors.grid;
-    this.ctx.lineWidth = this.options.grid.verticalLines.lineWidth;
-
+    this.ctx.lineWidth = 1;
     if (this.options.grid.verticalLines.visible) {
-      for (let i = visibleStart; i <= visibleEnd; i++) {
+      for (let i = start; i <= end; i++) {
         if (i % 10 === 0) {
           const x = this.timeScale.indexToX(i);
           this.ctx.beginPath();
-          this.ctx.moveTo(x, 0);
-          this.ctx.lineTo(x, height);
+          this.ctx.moveTo(x, 0); this.ctx.lineTo(x, height);
           this.ctx.stroke();
         }
       }
@@ -173,55 +174,39 @@ export class ChartManager {
 
     let currentY = 0;
 
-    // 3. Panes zeichnen
     this.panes.forEach(pane => {
-      const paneHeight = height * pane.heightWeight;
-      pane.priceScale.height = paneHeight;
+    const paneHeight = height * pane.heightWeight;
+    pane.priceScale.height = paneHeight;
 
-      this.yAxisNode.draw(this.ctx, paneHeight, pane.priceScale, width, currentY, this.options);
+    this.yAxisNode.draw(this.ctx, paneHeight, pane.priceScale, width, currentY, this.options, pane.id);
+    
+    if (this.isAutoScaling) {
+        this.autoScalePane(pane, start, end);
+    }
 
-      if (pane.id === 'main') {
-        if (this.isAutoScaling) {
-          const visibleData = this.dataStore.getVisibleData(visibleStart, visibleEnd);
-          let min = Infinity; let max = -Infinity;
-          for (const candle of visibleData) {
-            if (candle.high > max) max = candle.high;
-            if (candle.low < min) min = candle.low;
-          }
-          if (min === Infinity) { min = 0; max = 100; }
-          else {
-            const padding = (max - min) * 0.1;
-            pane.priceScale.setRange(min - padding, max + padding);
-          }
-        }
+    this.ctx.save();
+    this.ctx.beginPath();
+    this.ctx.rect(0, currentY, chartContentWidth, paneHeight);
+    this.ctx.clip();
+    this.ctx.translate(0, currentY);
 
-        this.ctx.save();
-        this.ctx.beginPath();
-        this.ctx.rect(0, currentY, chartContentWidth, paneHeight);
-        this.ctx.clip();
-        this.ctx.translate(0, currentY);
-        this.candlestickNode.draw(this.ctx, this.timeScale, pane.priceScale, this.options);
-        this.ctx.restore();
-      }
+    // DIE PANE ZEICHNET SICH JETZT SELBST INKL. Z-SORTIERUNG
+    pane.draw(this.ctx, this.timeScale, this.options);
 
-      this.ctx.strokeStyle = this.options.colors.axisLine;
-      this.ctx.strokeRect(0, currentY, chartContentWidth, paneHeight);
-      currentY += paneHeight;
+    this.ctx.restore();
+
+    this.ctx.strokeStyle = this.options.colors.axisLine;
+    this.ctx.strokeRect(0, currentY, chartContentWidth, paneHeight);
+    currentY += paneHeight;
     });
 
-    // 4. Zeitachse (X)
+    // 4. X-Achse & Crosshair
     this.xAxisNode.draw(this.ctx, chartContentWidth, height, this.timeScale, this.options);
 
-    // 5. Crosshair & Labels zeichnen (Ausgelagert in CrosshairNode)
     if (this.mousePos) {
       this.crosshairNode.draw(
-        this.ctx,
-        this.mousePos,
-        chartContentWidth,
-        height,
-        this.timeScale,
-        (y) => this.getPaneAtY(y), // Wir geben die Pane-Suche als "Auftrag" mit
-        this.options
+        this.ctx, this.mousePos, chartContentWidth, height, 
+        this.timeScale, (y) => this.getPaneAtY(y), this.options
       );
     }
   }
