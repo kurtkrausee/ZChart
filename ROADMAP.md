@@ -39,10 +39,18 @@
 - [x] `LineSeriesNode` und `HistogramNode` (Allzweck-Nodes für Indikatoren).
 - [x] RSI-Berechnung im DataStore oder IndicatorEngine.
 - [x] Ersten Test-Indikator (z.B. Volumen oder RSI) in einer unteren Pane rendern.
-- [] NEU: Format-Utility für Achsenbeschriftungen (Modular & Global einsetzbar).
-- [ ] NEU: Explizites Z-Layering (Vorbereitung für Zeichentools).
+- [x] Format-Utility für Achsenbeschriftungen (Modular & Global einsetzbar).
+- [x] Explizites Z-Layering (Vorbereitung für Zeichentools).
 
 ## Phase 8: Zeichentools & KLineChart-Brücke (Ausblick)
-- [ ] Hit-Testing-System für Linien und Formen (Klickt der User auf eine Linie?).
-- [ ] Integration deiner bestehenden KLineChart-UI (Linke Leiste) für Trendlinien und Fibo-Retracements.
-- [ ] Persistenz der User-Zeichnungen.
+- [x] Umrechnung von Canvas-Pixeln in logische Welt-Koordinaten (Zeit/Index/Preis).
+- [x] Hit-Testing-System für Linien und Formen (Kollisionsabfrage via Geometrie).
+- [x] Basis-Render-Knoten für Zeichnungen (z.B. `TrendLineNode`).
+- [ ] Interaktives Live-Zeichnen (Linie folgt der Maus vor dem zweiten Klick).
+- [ ] Modifikation (Anfasser greifen, Start-/Endpunkte einzeln verschieben).
+
+## Phase 9: Die Brücke (Externe UI & State Management)
+- [ ] Adapter-Pattern definieren (Kommunikation zwischen ZChart und Web-App).
+- [ ] Integration deiner bestehenden KLineChart-UI (Linke Leiste für Tool-Auswahl).
+- [ ] Externer DrawingStore: Auslagerung der Linien-Daten in deinen State.
+- [ ] Persistenz der User-Zeichnungen (Speichern/Laden aus Datenbank).

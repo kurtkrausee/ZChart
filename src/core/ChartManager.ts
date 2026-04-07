@@ -9,6 +9,9 @@ import { XAxisNode } from '../nodes/XAxisNode';
 import { DataStore } from '../data/DataStore';
 import { InputManager } from '../input/InputManager';
 import { CrosshairNode } from '../nodes/CrosshairNode';
+import { GridNode } from '../nodes/GridNode';                  // NEU
+import { AutoScaleEngine } from '../math/AutoScaleEngine';      // NEU
+import { TrendLineNode } from '../nodes/TrendLineNode';
 
 export class ChartManager {
   private canvas: HTMLCanvasElement;
@@ -20,18 +23,23 @@ export class ChartManager {
   
   public options: ChartConfig;
 
-  // Mathematik & Daten (dataStore ist jetzt public für die main.ts)
+  // Mathematik, Daten & Engines
   public timeScale: TimeScale = new TimeScale();
   public dataStore: DataStore = new DataStore();
+  private autoScaleEngine = new AutoScaleEngine(); // NEU
 
-  // Globale Nodes (gelten für den ganzen Chart)
+  // Globale Nodes
   private yAxisNode: YAxisNode = new YAxisNode();
   private xAxisNode: XAxisNode = new XAxisNode(); 
   private crosshairNode: CrosshairNode = new CrosshairNode();
+  private gridNode: GridNode = new GridNode();     // NEU
 
   // Interaktion
   private inputManager!: InputManager;
   private mousePos: { x: number, y: number } | null = null;
+
+  // NEU: Unsere temporäre Test-Linie
+  public testLine: TrendLineNode = new TrendLineNode();
 
   constructor(containerId: string, userOptions?: DeepPartial<ChartConfig>) {
     const container = document.getElementById(containerId);
@@ -51,44 +59,8 @@ export class ChartManager {
     this.inputManager = new InputManager(this.canvas, this.timeScale, this);
   }
 
-  // --- PUBLIC API ---
-
   public addPane(pane: Pane) {
     this.panes.push(pane);
-  }
-
-  /**
-   * Automatische Skalierung für eine Pane berechnen.
-   * Aktuell noch mit einfacher Logik für Kerzen und Volumen.
-   */
-  private autoScalePane(pane: Pane, start: number, end: number) {
-    const visibleData = this.dataStore.getVisibleData(start, end);
-    if (visibleData.length === 0) return;
-
-    // 1. Haupt-Chart (Preis)
-    if (pane.id === 'main') {
-      let min = Infinity; let max = -Infinity;
-      for (const candle of visibleData) {
-        if (candle.high > max) max = candle.high;
-        if (candle.low < min) min = candle.low;
-      }
-      const padding = (max - min) * 0.1;
-      pane.priceScale.setRange(min - padding, max + padding);
-    } 
-  
-    // 2. RSI (Immer 0 bis 100)
-    else if (pane.id === 'rsi') {
-      // Ein RSI geht mathematisch nie über 100 oder unter 0.
-      // Wir geben ihm 5% Padding, damit die Linie nicht am Rand klebt.
-      pane.priceScale.setRange(-5, 105);
-    }
-  
-    // 3. Volumen (Eigene Skala)
-    else if (pane.id === 'volume') {
-      let maxVol = 0;
-      for (const c of visibleData) if (c.volume > maxVol) maxVol = c.volume;
-      pane.priceScale.setRange(0, maxVol * 1.1); // 10% Puffer nach oben
-    }
   }
 
   public setMousePos(x: number | null, y: number | null) {
@@ -103,7 +75,26 @@ export class ChartManager {
     }
   }
 
-  // --- CORE ENGINE ---
+  public getPaneAt(pixelY: number) {
+    let accumulatedY = 0;
+    const logicalHeight = this.canvas.height / this.dpr;
+    
+    for (const pane of this.panes) {
+      const paneHeight = logicalHeight * pane.heightWeight;
+      
+      if (pixelY >= accumulatedY && pixelY <= accumulatedY + paneHeight) {
+        return {
+          pane: pane,
+          localY: pixelY - accumulatedY,
+          getId: () => pane.id,
+          getTopOffset: () => accumulatedY,
+          getPriceScale: () => pane.priceScale
+        };
+      }
+      accumulatedY += paneHeight;
+    }
+    return null;
+  }
 
   private setupResizing() {
     const resizeObserver = new ResizeObserver(() => this.updateSize());
@@ -129,19 +120,6 @@ export class ChartManager {
     requestAnimationFrame(loop);
   }
 
-  private getPaneAtY(y: number): { pane: Pane, localY: number } | null {
-    let accumulatedY = 0;
-    const logicalHeight = this.canvas.height / this.dpr;
-    for (const pane of this.panes) {
-      const paneHeight = logicalHeight * pane.heightWeight;
-      if (y >= accumulatedY && y <= accumulatedY + paneHeight) {
-        return { pane, localY: y - accumulatedY };
-      }
-      accumulatedY += paneHeight;
-    }
-    return null;
-  }
-
   private render() {
     const rect = this.canvas.getBoundingClientRect();
     const width = rect.width;
@@ -154,59 +132,55 @@ export class ChartManager {
 
     this.timeScale.width = chartContentWidth;
 
-    // 2. Grid & Sichtbarer Bereich
+    // 2. Sichtbarer Bereich berechnen
     const totalDataCount = this.dataStore.getAllData().length;
     const { start, end } = this.timeScale.getVisibleRange(totalDataCount);
-    
-    // Einfaches vertikales Grid
-    this.ctx.strokeStyle = this.options.colors.grid;
-    this.ctx.lineWidth = 1;
-    if (this.options.grid.verticalLines.visible) {
-      for (let i = start; i <= end; i++) {
-        if (i % 10 === 0) {
-          const x = this.timeScale.indexToX(i);
-          this.ctx.beginPath();
-          this.ctx.moveTo(x, 0); this.ctx.lineTo(x, height);
-          this.ctx.stroke();
-        }
-      }
-    }
+    const visibleData = this.dataStore.getVisibleData(start, end);
+
+    // 3. Grid zeichnen (Ausgelagert!)
+    this.gridNode.draw(this.ctx, chartContentWidth, height, this.timeScale, this.options, start, end);
 
     let currentY = 0;
 
+    // 4. Panes rendern
     this.panes.forEach(pane => {
-    const paneHeight = height * pane.heightWeight;
-    pane.priceScale.height = paneHeight;
+      const paneHeight = height * pane.heightWeight;
+      pane.priceScale.height = paneHeight;
 
-    this.yAxisNode.draw(this.ctx, paneHeight, pane.priceScale, width, currentY, this.options, pane.id);
-    
-    if (this.isAutoScaling) {
-        this.autoScalePane(pane, start, end);
-    }
+      this.yAxisNode.draw(this.ctx, paneHeight, pane.priceScale, width, currentY, this.options, pane.id);
+      
+      // AutoScaling via Engine (Ausgelagert!)
+      if (this.isAutoScaling) {
+        this.autoScaleEngine.scalePane(pane, visibleData);
+      }
 
-    this.ctx.save();
-    this.ctx.beginPath();
-    this.ctx.rect(0, currentY, chartContentWidth, paneHeight);
-    this.ctx.clip();
-    this.ctx.translate(0, currentY);
+      this.ctx.save();
+      this.ctx.beginPath();
+      this.ctx.rect(0, currentY, chartContentWidth, paneHeight);
+      this.ctx.clip();
+      this.ctx.translate(0, currentY);
 
-    // DIE PANE ZEICHNET SICH JETZT SELBST INKL. Z-SORTIERUNG
-    pane.draw(this.ctx, this.timeScale, this.options);
+      pane.draw(this.ctx, this.timeScale, this.options);
 
-    this.ctx.restore();
+      // NEU: Die Test-Linie in der Main-Pane darüberzeichnen
+      if (pane.id === 'main') {
+        this.testLine.draw(this.ctx, this.timeScale, pane.priceScale, this.options);
+      }
 
-    this.ctx.strokeStyle = this.options.colors.axisLine;
-    this.ctx.strokeRect(0, currentY, chartContentWidth, paneHeight);
-    currentY += paneHeight;
+      this.ctx.restore();
+
+      this.ctx.strokeStyle = this.options.colors.axisLine;
+      this.ctx.strokeRect(0, currentY, chartContentWidth, paneHeight);
+      currentY += paneHeight;
     });
 
-    // 4. X-Achse & Crosshair
+    // 5. X-Achse & Crosshair
     this.xAxisNode.draw(this.ctx, chartContentWidth, height, this.timeScale, this.options);
 
     if (this.mousePos) {
       this.crosshairNode.draw(
         this.ctx, this.mousePos, chartContentWidth, height, 
-        this.timeScale, (y) => this.getPaneAtY(y), this.options
+        this.timeScale, (y) => this.getPaneAt(y), this.options
       );
     }
   }
