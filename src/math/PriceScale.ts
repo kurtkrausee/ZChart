@@ -5,6 +5,10 @@ export class PriceScale {
   public minPrice: number = 0;
   public maxPrice: number = 100;
 
+  // NEU: Diese Werte brauchen wir für den Area-Fill und das Grid
+  public visibleMin: number = 0;
+  public visibleMax: number = 100;
+
   /**
    * Wandelt einen Preis (z.B. 54000.50) in einen Y-Pixelwert um
    */
@@ -31,6 +35,10 @@ export class PriceScale {
   public setRange(min: number, max: number) {
     this.minPrice = min;
     this.maxPrice = max;
+
+    // NEU: Hier "merken" wir uns die Werte für die Nodes
+    this.visibleMin = min;
+    this.visibleMax = max;
   }
 
   /**

@@ -1,10 +1,10 @@
 // nodes/VolumeNode.ts
 
-import { TimeScale } from '../math/TimeScale';
-import { PriceScale } from '../math/PriceScale';
-import { SceneNode } from './SceneNode';
-import { DataStore } from '../data/DataStore';
-import type { ChartConfig } from '../core/ChartOptions';
+import { TimeScale } from '../../math/TimeScale';
+import { PriceScale } from '../../math/PriceScale';
+import { SceneNode } from '../core/SceneNode';
+import { DataStore } from '../../data/DataStore';
+import type { ChartConfig } from '../../core/ChartOptions';
 
 export class VolumeNode extends SceneNode {
   private dataStore: DataStore;

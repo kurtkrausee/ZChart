@@ -3,7 +3,7 @@
 import sampleData from './ohlcv_sample_5000.json';
 
 export interface CandleData {
-  time: number;
+  timestamp: number;
   open: number;
   high: number;
   low: number;

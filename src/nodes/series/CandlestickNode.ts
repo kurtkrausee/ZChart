@@ -1,10 +1,10 @@
 // nodes/CandlestickNode.ts
 
-import type { ChartConfig } from '../core/ChartOptions';
-import { TimeScale } from '../math/TimeScale';
-import { PriceScale } from '../math/PriceScale';
-import { SceneNode } from './SceneNode';
-import { DataStore } from '../data/DataStore';
+import type { ChartConfig } from '../../core/ChartOptions';
+import { TimeScale } from '../../math/TimeScale';
+import { PriceScale } from '../../math/PriceScale';
+import { SceneNode } from '../core/SceneNode';
+import { DataStore } from '../../data/DataStore';
 
 export class CandlestickNode extends SceneNode {
   private dataStore: DataStore;

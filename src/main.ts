@@ -2,10 +2,10 @@
 import './style.css';
 import { ChartManager } from './core/ChartManager';
 import { Pane } from './core/Pane';
-import { CandlestickNode } from './nodes/CandlestickNode';
-import { LineSeriesNode } from './nodes/LineSeriesNode';
-import { StaticLineNode } from './nodes/StaticLineNode';
-import { HistogramNode } from './nodes/HistogramNode';
+import { CandlestickNode } from './nodes/series/CandlestickNode';
+import { LineSeriesNode } from './nodes/series/LineSeriesNode';
+import { StaticLineNode } from './nodes/core/StaticLineNode';
+import { HistogramNode } from './nodes/series/HistogramNode';
 import { ZChartAPI } from './api/ZChartAPI'; // NEU: Importieren
 
 const chart = new ChartManager('app');

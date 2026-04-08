@@ -1,9 +1,9 @@
 // nodes/StaticLineNode.ts
 
-import { TimeScale } from '../math/TimeScale';
-import { PriceScale } from '../math/PriceScale';
+import { TimeScale } from '../../math/TimeScale';
+import { PriceScale } from '../../math/PriceScale';
 import { SceneNode } from './SceneNode';
-import type { ChartConfig } from '../core/ChartOptions';
+import type { ChartConfig } from '../../core/ChartOptions';
 
 export class StaticLineNode extends SceneNode {
   private value: number;

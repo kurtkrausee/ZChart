@@ -1,9 +1,9 @@
 // nodes/HistogramNode.ts
 
-import { TimeScale } from '../math/TimeScale';
-import { PriceScale } from '../math/PriceScale';
-import { SceneNode } from './SceneNode';
-import type { ChartConfig } from '../core/ChartOptions';
+import { TimeScale } from '../../math/TimeScale';
+import { PriceScale } from '../../math/PriceScale';
+import { SceneNode } from '../core/SceneNode';
+import type { ChartConfig } from '../../core/ChartOptions';
 
 export class HistogramNode extends SceneNode {
   private dataStore: any;

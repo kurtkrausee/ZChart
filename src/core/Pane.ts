@@ -1,6 +1,6 @@
 // core/Pane.ts
 import { PriceScale } from '../math/PriceScale';
-import { SceneNode } from '../nodes/SceneNode';
+import { SceneNode } from '../nodes/core/SceneNode';
 import { TimeScale } from '../math/TimeScale';
 import type { ChartConfig } from './ChartOptions';
 

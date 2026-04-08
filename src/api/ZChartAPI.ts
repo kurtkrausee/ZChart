@@ -1,6 +1,6 @@
 // src/api/ZChartAPI.ts
 import { ChartManager } from '../core/ChartManager';
-import { TrendLineNode } from '../nodes/TrendLineNode';
+import { TrendLineNode } from '../nodes/tools/TrendLineNode';
 
 export class ZChartAPI {
     private manager: ChartManager;
@@ -19,12 +19,14 @@ export class ZChartAPI {
     /**
      * Steuert das aktive Werkzeug (z.B. von der Toolbar aufgerufen)
      */
-    public setTool(tool: 'pan' | 'trendline'): void {
+    public setTool(tool: 'pan' | 'trendline' | 'fibo'): void {
         const input = this.manager.inputManager;
         if (tool === 'pan') {
             input.mode = 'crosshair_and_pan';
         } else if (tool === 'trendline') {
             input.mode = 'draw_trendline';
+        } else if (tool === 'fibo') {
+            input.mode = 'draw_fibo'; // <--- NEU
         }
     }
 
@@ -140,4 +142,20 @@ export class ZChartAPI {
             };
         });
     }
+
+    public setTheme(theme: 'light' | 'dark'): void {
+    if (theme === 'light') {
+        this.manager.options.colors.background = '#ffffff';
+        this.manager.options.colors.text = '#333333';
+        this.manager.options.colors.axisLine = '#e0e0e0';
+        this.manager.options.colors.grid = '#f0f0f0';
+    } else {
+        this.manager.options.colors.background = '#131722';
+        this.manager.options.colors.text = '#d1d4dc';
+        this.manager.options.colors.axisLine = '#363c4e';
+        this.manager.options.colors.grid = '#2a2e39';
+    }
+    this.manager.render();
+}
+
 }

@@ -1,8 +1,8 @@
 // nodes/CrosshairNode.ts
 
-import { TimeScale } from '../math/TimeScale';
-import { PriceScale } from '../math/PriceScale';
-import type { ChartConfig } from '../core/ChartOptions';
+import { TimeScale } from '../../math/TimeScale';
+import { PriceScale } from '../../math/PriceScale';
+import type { ChartConfig } from '../../core/ChartOptions';
 
 export class CrosshairNode {
   public draw(

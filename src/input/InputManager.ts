@@ -2,8 +2,9 @@
 
 import { TimeScale } from '../math/TimeScale';
 import type { ChartConfig } from '../core/ChartOptions';
-import { TrendLineNode } from '../nodes/TrendLineNode';
+import { TrendLineNode } from '../nodes/tools/TrendLineNode';
 import { DrawingManager } from '../core/DrawingManager';
+import { FiboNode } from '../nodes/tools/FiboNode';
 
 // --- NEU (Phase 8): Interfaces für das Koordinaten-Mapping ---
 
@@ -31,7 +32,7 @@ export interface IPane {
 
 // --- NEU: Werkzeug-Modi ---
 // --- NEU: Werkzeug-Modi (als String Union, Vite-kompatibel!) ---
-export type InputMode = 'crosshair_and_pan' | 'draw_trendline';
+export type InputMode = 'crosshair_and_pan' | 'draw_trendline' | 'draw_fibo';
 
 
 /**
@@ -69,7 +70,7 @@ export class InputManager {
 
  // Status fürs Zeichnen
   private drawStep: number = 0;
-  private activeDrawingNode: TrendLineNode | null = null; // Die Linie, die gerade gezeichnet/verschoben wird
+  private activeDrawingNode: TrendLineNode | FiboNode | null = null; // Die Linie, die gerade gezeichnet/verschoben wird
 
   // Status für das Verschieben von Punkten
   private isDraggingPoint: boolean = false;
@@ -233,7 +234,44 @@ export class InputManager {
             return;
         }
     }
-      
+    
+    // ==========================================
+    // MODUS: ZEICHNEN (Neues Fibonacci)
+    // ==========================================
+    else if (this.mode === 'draw_fibo') {
+        if (this.drawStep === 0) {
+            const newFibo = new FiboNode();
+            
+            newFibo.point1 = { index: logicalCoords.index, price: logicalCoords.price };
+            newFibo.point2 = { index: logicalCoords.index, price: logicalCoords.price }; 
+            
+            this.manager.drawingManager.shapes.push(newFibo);
+            
+            this.activeDrawingNode = newFibo; // FiboNode muss in activeDrawingNode passen!
+            this.drawStep = 1;
+            return;
+        } else if (this.drawStep === 1 && this.activeDrawingNode) {
+            this.activeDrawingNode.point2 = { index: logicalCoords.index, price: logicalCoords.price };
+            this.activeDrawingNode.isSelected = true; 
+            
+            // Event feuern (Dirty Check)
+            this.manager.emit('drawingCreated', {
+                id: this.activeDrawingNode.id,
+                type: 'fibRetracement',
+                data: {
+                    point1: this.activeDrawingNode.point1,
+                    point2: this.activeDrawingNode.point2
+                }
+            });
+
+            this.drawStep = 0; 
+            this.activeDrawingNode = null;
+            this.mode = 'crosshair_and_pan'; 
+            this.manager.setMousePos(x, y); 
+            return;
+        }
+    }
+
     // ==========================================
     // DEFAULT: PANNING
     // ==========================================

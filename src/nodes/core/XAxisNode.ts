@@ -1,7 +1,7 @@
 // nodes/XAxisNode.ts
 
-import type { ChartConfig } from '../core/ChartOptions';
-import { TimeScale } from '../math/TimeScale';
+import type { ChartConfig } from '../../core/ChartOptions';
+import { TimeScale } from '../../math/TimeScale';
 
 export class XAxisNode {
   public draw(

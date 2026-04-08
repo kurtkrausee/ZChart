@@ -66,10 +66,22 @@
 - [x] Visibility-Toggle: Property isVisible in SceneNode / TrendLineNode einbauen, um Elemente über den Baum auszublenden.
 
 ### 9.3: Externer State & Synchronisation (Data Flow)
-- [ ] Import/Export-Logik: Konverter schreiben, der ZChart-Nodes in dein Server-Format (JSON mit Timestamps) und zurück verwandelt.
+- [x] Import/Export-Logik: Konverter schreiben, der ZChart-Nodes in dein Server-Format (JSON mit Timestamps) und zurück verwandelt.
 - [x] Der "Dirty"-Check: Mechanismus, der nach dem Verschieben eines Ankerpunkts das Update-Event an die Web-App feuert (onDrawingChanged).
 - [ ] KLineChart-Drop-In: Ersetzen der KLineChart-Instanz durch ZChart in der UI und Verknüpfung der Toolbar-Icons mit der ZChartAPI.
 
 ### 9.4: Fortgeschrittene Tools (Phase 9 Erweiterung)
-- [ ] FiboNode: Implementierung des Fibonacci-Retracement-Tools (Geometrie & Auto-Labels).
-- [ ] Element-Löschen: Globaler Key-Listener (Entf-Taste) oder API-Call zum Entfernen selektierter Shapes.
+- [x] FiboNode: Implementierung des Fibonacci-Retracement-Tools (Geometrie & Auto-Labels).
+- [x] Element-Löschen: Globaler Key-Listener (Entf-Taste) oder API-Call zum Entfernen selektierter Shapes.
+
+# 🚀 Erweiterte Roadmap
+# Phase 10: Architektur-Finish & Migration (Aktueller Fokus)
+- [x] Node-Reorganisation: Unterordner /nodes/series, /nodes/indicators, /nodes/tools erstellen und Dateien verschieben.
+- [x] Styles & Themes: Implementierung eines Theme-Managers (Hell/Dunkel Umschaltung).
+- [ ] Parallel-Integration: ZChart in einem neuen Tab/Reiter deiner Web-App neben KLineChart einbetten.
+- [x] FAQ & Dokumentation: Erstellung der FAQ.md und ARCHITECTURE.md für dein Server-Team.
+
+# Phase 11: Advanced Visuals (The "Smiley" Phase)
+- [ ] Bounding Box System: Ein Rahmen für selektierte Objekte (Handles zum Skalieren an den Ecken).
+- [ ] Rotation-Logic: Mathematische Integration von Winkeln für Nodes (wie Emojis oder Text).
+- [ ] New Series Types: Implementierung von Hohlkerzen (Hollow Candles) und Area-Charts.

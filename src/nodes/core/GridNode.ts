@@ -1,7 +1,7 @@
 // nodes/GridNode.ts
 
-import { TimeScale } from '../math/TimeScale';
-import type { ChartConfig } from '../core/ChartOptions';
+import { TimeScale } from '../../math/TimeScale';
+import type { ChartConfig } from '../../core/ChartOptions';
 
 export class GridNode {
   public draw(

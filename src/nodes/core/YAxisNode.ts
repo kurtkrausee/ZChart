@@ -1,8 +1,8 @@
 // nodes/YAxisNode.ts
 
-import type { ChartConfig } from '../core/ChartOptions';
-import { PriceScale } from '../math/PriceScale';
-import { formatKiloMega, formatPrice } from '../utils/Formatters'; // Unsere neuen Helfer
+import type { ChartConfig } from '../../core/ChartOptions';
+import { PriceScale } from '../../math/PriceScale';
+import { formatKiloMega, formatPrice } from '../../utils/Formatters'; // Unsere neuen Helfer
 
 export class YAxisNode {
   public draw(

@@ -1,12 +1,13 @@
 // core/DrawingManager.ts
 
-import { TrendLineNode } from '../nodes/TrendLineNode';
+import { TrendLineNode } from '../nodes/tools/TrendLineNode';
+import { FiboNode } from '../nodes/tools/FiboNode';
 import { TimeScale } from '../math/TimeScale';
 import { PriceScale } from '../math/PriceScale';
 import type { ChartConfig } from './ChartOptions';
 
 export class DrawingManager {
-    public shapes: TrendLineNode[] = []; 
+    public shapes: Array<TrendLineNode | FiboNode> = []; 
 
     /**
      * Zeichnet alle sichtbaren Formen auf den Canvas.

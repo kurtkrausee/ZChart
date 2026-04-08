@@ -1,10 +1,10 @@
 // nodes/TrendLineNode.ts
 
-import { TimeScale } from '../math/TimeScale';
+import { TimeScale } from '../../math/TimeScale';
 // HINWEIS: Je nachdem, wie du die PriceScale exportiert hast, Pfad anpassen
-import { PriceScale } from '../math/PriceScale'; 
-import type { ChartConfig } from '../core/ChartOptions';
-import { distanceToLineSegment } from '../utils/geometry';
+import { PriceScale } from '../../math/PriceScale'; 
+import type { ChartConfig } from '../../core/ChartOptions';
+import { distanceToLineSegment } from '../../utils/geometry';
 
 export interface LogicalPoint {
     index: number;

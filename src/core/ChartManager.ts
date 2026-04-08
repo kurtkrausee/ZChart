@@ -4,12 +4,12 @@ import { Pane } from './Pane';
 import { TimeScale } from '../math/TimeScale';
 import { defaultOptions, mergeOptions } from './ChartOptions';
 import type { ChartConfig, DeepPartial } from './ChartOptions';
-import { YAxisNode } from '../nodes/YAxisNode';
-import { XAxisNode } from '../nodes/XAxisNode';
+import { YAxisNode } from '../nodes/core/YAxisNode';
+import { XAxisNode } from '../nodes/core/XAxisNode';
 import { DataStore } from '../data/DataStore';
 import { InputManager } from '../input/InputManager';
-import { CrosshairNode } from '../nodes/CrosshairNode';
-import { GridNode } from '../nodes/GridNode';                  // NEU
+import { CrosshairNode } from '../nodes/core/CrosshairNode';
+import { GridNode } from '../nodes/core/GridNode';                  // NEU
 import { AutoScaleEngine } from '../math/AutoScaleEngine';      // NEU
 import { DrawingManager } from './DrawingManager';
 
