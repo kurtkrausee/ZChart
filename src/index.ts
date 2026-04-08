@@ -27,4 +27,5 @@ export { YAxisNode } from './nodes/core/YAxisNode';
 
 // Typen (korrekte Pfade!)
 export type { CandleData } from './data/DataStore';
-export type { ChartConfig, ChartColors } from './core/ChartOptions'; // <--- Hier ist der korrigierte Pfad
+export type { ChartConfig, DeepPartial } from './core/ChartOptions';
+export { defaultOptions, mergeOptions } from './core/ChartOptions';
