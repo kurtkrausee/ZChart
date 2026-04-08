@@ -46,8 +46,8 @@
 - [x] Umrechnung von Canvas-Pixeln in logische Welt-Koordinaten (Zeit/Index/Preis).
 - [x] Hit-Testing-System für Linien und Formen (Kollisionsabfrage via Geometrie).
 - [x] Basis-Render-Knoten für Zeichnungen (z.B. `TrendLineNode`).
-- [ ] Interaktives Live-Zeichnen (Linie folgt der Maus vor dem zweiten Klick).
-- [ ] Modifikation (Anfasser greifen, Start-/Endpunkte einzeln verschieben).
+- [x] Interaktives Live-Zeichnen (Linie folgt der Maus vor dem zweiten Klick).
+- [x] Modifikation (Anfasser greifen, Start-/Endpunkte einzeln verschieben).
 
 ## Phase 9: Die Brücke (Externe UI & State Management)
 - [ ] Adapter-Pattern definieren (Kommunikation zwischen ZChart und Web-App).

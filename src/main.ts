@@ -8,6 +8,7 @@ import { StaticLineNode } from './nodes/StaticLineNode';
 import { HistogramNode } from './nodes/HistogramNode';
 
 const chart = new ChartManager('app');
+(window as any).zchart = chart;
 chart.dataStore.calculateRSI(14);
 
 // 1. MAIN PANE
@@ -40,5 +41,5 @@ rsiLine.zIndex = 5;
 rsiPane.addNode(overbought);
 rsiPane.addNode(oversold);
 rsiPane.addNode(rsiLine);
-
+(window as any).chart = ChartManager;
 chart.addPane(rsiPane);

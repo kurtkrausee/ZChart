@@ -11,7 +11,7 @@ import { InputManager } from '../input/InputManager';
 import { CrosshairNode } from '../nodes/CrosshairNode';
 import { GridNode } from '../nodes/GridNode';                  // NEU
 import { AutoScaleEngine } from '../math/AutoScaleEngine';      // NEU
-import { TrendLineNode } from '../nodes/TrendLineNode';
+import { DrawingManager } from './DrawingManager';
 
 export class ChartManager {
   private canvas: HTMLCanvasElement;
@@ -35,11 +35,10 @@ export class ChartManager {
   private gridNode: GridNode = new GridNode();     // NEU
 
   // Interaktion
-  private inputManager!: InputManager;
+  public inputManager!: InputManager; //private -> public
   private mousePos: { x: number, y: number } | null = null;
 
-  // NEU: Unsere temporäre Test-Linie
-  public testLine: TrendLineNode = new TrendLineNode();
+  public drawingManager: DrawingManager = new DrawingManager();
 
   constructor(containerId: string, userOptions?: DeepPartial<ChartConfig>) {
     const container = document.getElementById(containerId);
@@ -162,9 +161,10 @@ export class ChartManager {
 
       pane.draw(this.ctx, this.timeScale, this.options);
 
-      // NEU: Die Test-Linie in der Main-Pane darüberzeichnen
+      // NEU: Den DrawingManager alle Shapes zeichnen lassen
       if (pane.id === 'main') {
-        this.testLine.draw(this.ctx, this.timeScale, pane.priceScale, this.options);
+        // LÖSCHEN: this.testLine.draw(...)
+        this.drawingManager.draw(this.ctx, this.timeScale, pane.priceScale, this.options);
       }
 
       this.ctx.restore();

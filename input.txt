@@ -315,3 +315,89 @@ Nur noch zwei Dinge fehlen wirklich:
 Erstens das Live-Zeichnen — eine temporäre Preview-Linie die der Maus folgt bevor der zweite Klick kommt. Das ist ein separater previewNode im InputManager der nach dem zweiten Klick durch eine echte TrendLineNode ersetzt wird.
 Zweitens die serialize/deserialize Logik in den anderen bestehenden Nodes nachrüsten — CandlestickNode, LineSeriesNode, HistogramNode brauchen das auch, auch wenn sie nie gespeichert werden müssen. Einfach leeres Objekt zurückgeben reicht.
 Wie hast du aktuell den InputManager strukturiert — ist der Zeichenmodus schon drin oder noch nicht?
+
+
+Input 3:
+
+Sehr sauber für einen Selbstbau. Der Code ist gut lesbar, die Trennung stimmt. Ich sehe aber ein paar Dinge die ich direkt ansprechen möchte.
+Was gut ist:
+getLogicalCoordinates() ist die richtige Abstraktion — das ist genau die Brücke zwischen Pixel und Welt. getPaneAt() im ChartManager ist sauber implementiert. Der ResizeObserver für High-DPI ist professionell gemacht.
+Was problematisch ist:
+Problem 1 — testLine direkt im ChartManager
+typescript// ChartManager.ts — so ist es jetzt
+public testLine: TrendLineNode = new TrendLineNode();
+Das funktioniert für einen Test, aber skaliert nicht. Wenn du 10 Trendlinien hast, kannst du nicht testLine2, testLine3... machen. Die Lösung ist ein DrawingStore:
+typescript// ChartManager.ts — so sollte es werden
+private drawings: TrendLineNode[] = [];  // alle Linien
+
+public addDrawing(node: TrendLineNode): void {
+  const mainPane = this.panes.find(p => p.id === 'main');
+  mainPane?.addNode(node);  // in Pane einhängen statt separat
+  this.drawings.push(node);
+}
+
+public getDrawings(): TrendLineNode[] {
+  return this.drawings;
+}
+Problem 2 — Doppeltes isDragging setzen im InputManager
+typescript// InputManager.ts — mousedown — das passiert zweimal
+} else {
+  this.isDragging = true;   // ← hier gesetzt
+  // ...
+  // 3. PANNING (Nur wenn wir nichts anderes gemacht haben)
+  this.isDragging = true;   // ← nochmal gesetzt
+Das ist ein Copy-Paste Bug. Der untere Block sollte ein else um den Zeichenmodus haben:
+typescriptprivate onMouseDown = (e: MouseEvent) => {
+  const rect = this.canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+
+  const isOverYAxis = x > (rect.width - this.manager.options.layout.axisWidth);
+
+  if (isOverYAxis) {
+    this.isScalingY = true;
+    this.startY = e.clientY;
+    this.canvas.style.cursor = 'ns-resize';
+    return;  // ← früh raus, kein Fall-through
+  }
+
+  const logicalCoords = this.getLogicalCoordinates(x, y);
+
+  // Zeichenmodus aktiv?
+  if (logicalCoords && this.activeToolMode === 'trendline') {
+    this.handleDrawingClick(x, y, logicalCoords);
+    return;  // ← kein Panning
+  }
+
+  // Hit-Testing auf bestehende Linien
+  if (this.handleHitTest(x, y)) {
+    return;  // ← Linie getroffen, kein Panning
+  }
+
+  // Panning — nur wenn nichts anderes zutrifft
+  this.isDragging = true;
+  this.startX = e.clientX;
+  this.startScrollOffset = this.timeScale.scrollOffset;
+  this.canvas.style.cursor = 'grabbing';
+};
+Problem 3 — activeToolMode fehlt
+Aktuell zeichnest du immer eine Linie wenn du klickst. Du brauchst einen Modus-State:
+typescript// InputManager.ts
+type ToolMode = 'pointer' | 'trendline' | 'emoji' | 'text';
+
+export class InputManager {
+  private activeToolMode: ToolMode = 'pointer';  // Standard: kein Zeichnen
+
+  public setTool(mode: ToolMode): void {
+    this.activeToolMode = mode;
+    this.testLineStep = 0;  // Reset beim Werkzeugwechsel
+  }
+}
+Das ist die Verbindung zu deiner linken Toolbar — wenn der User auf "Trendlinie" klickt, rufst du inputManager.setTool('trendline') auf.
+Die nächsten konkreten Schritte in der richtigen Reihenfolge:
+1. testLine raus aus ChartManager → drawings[] Array + addDrawing()
+2. Doppeltes isDragging fixen
+3. activeToolMode einführen
+4. handleDrawingClick() als eigene Methode extrahieren
+5. Live-Preview Linie (folgt Maus nach erstem Klick)
+6. Anfasser-Drag (hitTestAnchor aus TrendLineNode nutzen)

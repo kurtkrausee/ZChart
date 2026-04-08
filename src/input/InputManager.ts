@@ -3,6 +3,7 @@
 import { TimeScale } from '../math/TimeScale';
 import type { ChartConfig } from '../core/ChartOptions';
 import { TrendLineNode } from '../nodes/TrendLineNode';
+import { DrawingManager } from '../core/DrawingManager';
 
 // --- NEU (Phase 8): Interfaces für das Koordinaten-Mapping ---
 
@@ -15,6 +16,10 @@ export interface LogicalCoordinates {
   price: number;      // Der reale Preis oder Indikator-Wert der Y-Achse
 }
 
+export interface LogicalCoordinates {
+  x: number; y: number; paneId: string; time: number | null; index: number; price: number;
+}
+
 /**
  * Ein minimales Interface für Panes, damit der InputManager typsicher die Y-Achse abfragen kann.
  */
@@ -24,13 +29,18 @@ export interface IPane {
   getPriceScale(): { yToPrice(y: number): number };
 }
 
+// --- NEU: Werkzeug-Modi ---
+// --- NEU: Werkzeug-Modi (als String Union, Vite-kompatibel!) ---
+export type InputMode = 'crosshair_and_pan' | 'draw_trendline';
+
+
 /**
  * Ein Interface beschreibt, welche Methoden der ChartManager besitzen muss.
  * So kann der InputManager mit ihm reden, ohne die ganze Datei importieren zu müssen.
  */
 interface IChartManager {
   options: ChartConfig;
-  testLine: TrendLineNode; // NEU: Damit der InputManager die Test-Linie direkt beeinflussen kann
+  drawingManager: DrawingManager; // NEU: Zugriff auf alle Zeichnungen
   zoomPrice(deltaY: number): void;
   setMousePos(x: number | null, y: number | null): void;
   // NEU: Der Manager muss uns sagen können, welche Pane an Pixel-Y liegt
@@ -42,6 +52,9 @@ export class InputManager {
   private timeScale: TimeScale;
   private manager: IChartManager; // Die direkte, saubere Verbindung zum ChartManager
 
+  // --- NEU: Aktueller Modus ---
+  public mode: InputMode = 'crosshair_and_pan';
+
   // Status-Variablen für das Panning (X-Achse schieben)
   private isDragging: boolean = false;
   private startX: number = 0;
@@ -51,8 +64,9 @@ export class InputManager {
   private isScalingY: boolean = false;
   private startY: number = 0;
 
-  // NEU: Zählt die Klicks für unsere Test-Linie (0 = nichts, 1 = Startpunkt gesetzt)
-  private testLineStep: number = 0;
+ // Status fürs Zeichnen
+  private drawStep: number = 0;
+  private activeDrawingNode: TrendLineNode | null = null; // Die Linie, die gerade gezeichnet/verschoben wird
 
   // Status für das Verschieben von Punkten
   private isDraggingPoint: boolean = false;
@@ -62,7 +76,6 @@ export class InputManager {
     this.canvas = canvas;
     this.timeScale = timeScale;
     this.manager = manager;
-
     this.attachListeners();
   }
 
@@ -76,9 +89,7 @@ export class InputManager {
     this.canvas.addEventListener('wheel', this.onWheel, { passive: false });
 
     // Wenn die Maus das Canvas verlässt, setzen wir das Fadenkreuz im Manager auf null
-    this.canvas.addEventListener('mouseleave', () => {
-      this.manager.setMousePos(null, null);
-    });
+    this.canvas.addEventListener('mouseleave', () => this.manager.setMousePos(null, null));
   }
 
   // --- NEU (Phase 8): Die zentrale Mapping-Funktion ---
@@ -116,7 +127,6 @@ export class InputManager {
     // Prüfen: Ist die Maus über der rechten Preisachse?
     // Wir nutzen hier die options direkt vom manager
     const isOverYAxis = x > (rect.width - this.manager.options.layout.axisWidth);
-
     if (isOverYAxis) {
       // Modus: Preisachse stauchen
       this.isScalingY = true;
@@ -132,40 +142,74 @@ export class InputManager {
     const targetPane = this.manager.getPaneAt(y);
     const priceScale = targetPane?.getPriceScale() as any;
 
-    // 1. Logik: Punkt-Verschieben (Hat Priorität, wenn Linie selektiert ist)
-    if (this.manager.testLine.isSelected) {
-        const anchorHit = this.manager.testLine.hitTestAnchor(x, y, this.timeScale, priceScale);
-        if (anchorHit) {
-            this.isDraggingPoint = true;
-            this.draggedPointIndex = anchorHit;
-            return; // Verhindert Panning während des Draggings
+    // ==========================================
+    // MODUS: STANDARD (Auswählen & Modifizieren)
+    // ==========================================
+    if (this.mode === 'crosshair_and_pan') {
+
+        // 1. Prüfen: Haben wir einen Ankerpunkt von einer SELEKTIERTEN Linie getroffen?
+        for (const shape of this.manager.drawingManager.shapes) {
+            if (shape.isSelected) {
+                const anchorHit = shape.hitTestAnchor(x, y, this.timeScale, priceScale);
+                if (anchorHit) {
+                    this.isDraggingPoint = true;
+                    this.draggedPointIndex = anchorHit;
+                    this.activeDrawingNode = shape;
+                    return; // Stopp: Wir verschieben einen Punkt, nicht pannen!
+                }
+            }
+        }
+
+        // 2. Prüfen: Haben wir eine Linie getroffen? (Rückwärts-Schleife wegen Z-Index)
+        let hitFound = false;
+        const shapes = this.manager.drawingManager.shapes;
+        for (let i = shapes.length - 1; i >= 0; i--) {
+            const shape = shapes[i];
+            if (!hitFound && shape.hitTest(x, y, this.timeScale, priceScale)) {
+                shape.isSelected = !shape.isSelected;
+                hitFound = true;
+            } else {
+                shape.isSelected = false; // Alle anderen deselektieren
+            }
+        }
+        
+        if (hitFound) return; // Stopp: Wir haben etwas markiert, nicht pannen!
+        
+        // Wenn wir hier ankommen, haben wir ins "Leere" geklickt -> Alles deselektieren
+        this.manager.drawingManager.deselectAll();
+    }
+
+    // ==========================================
+    // MODUS: ZEICHNEN (Neue Trendlinie)
+    // ==========================================
+
+    
+    else if (this.mode === 'draw_trendline') {
+        if (this.drawStep === 0) {
+            // Linie erstellen und in den Manager pushen
+            const newLine = new TrendLineNode();
+            newLine.point1 = { index: logicalCoords.index, price: logicalCoords.price };
+            newLine.point2 = { index: logicalCoords.index, price: logicalCoords.price }; 
+            this.manager.drawingManager.shapes.push(newLine);
+            
+            this.activeDrawingNode = newLine;
+            this.drawStep = 1;
+            return;
+        } else if (this.drawStep === 1 && this.activeDrawingNode) {
+            // Endpunkt setzen und Modus automatisch beenden
+            this.activeDrawingNode.point2 = { index: logicalCoords.index, price: logicalCoords.price };
+            this.activeDrawingNode.isSelected = true; // Neu gezeichnete Linie direkt markieren
+            
+            this.drawStep = 0; 
+            this.activeDrawingNode = null;
+            this.mode = 'crosshair_and_pan'; // Zurück zum Standard-Mauszeiger!
+            return;
         }
     }
-
-    // 2. Logik: Linien-Selektion (Hit-Test)
-    const isLineHit = this.manager.testLine.hitTest(x, y, this.timeScale, priceScale);
-    if (isLineHit) {
-      // Linie auswählen/abwählen und abbrechen (nicht neu zeichnen)
-      this.manager.testLine.isSelected = !this.manager.testLine.isSelected;
-      return; 
-    }
-
-    // 3. ZEICHNEN: Wenn wir die Linie nicht getroffen haben, zeichnen wir neu
-    if (this.testLineStep === 0) {
-      // Erster Klick: Startpunkt setzen, Endpunkt vorläufig auf den gleichen Punkt setzen
-      this.manager.testLine.point1 = { index: logicalCoords.index, price: logicalCoords.price };
-      this.manager.testLine.point2 = { index: logicalCoords.index, price: logicalCoords.price }; 
-      this.testLineStep = 1;
-      this.manager.testLine.isSelected = false; // Während des Zeichnens nicht selektiert
-      return;
-    } else if (this.testLineStep === 1) {
-      // Zweiter Klick: Endpunkt fixieren
-      this.manager.testLine.point2 = { index: logicalCoords.index, price: logicalCoords.price };
-      this.testLineStep = 0; 
-      return; // <-- Abbruch!
-    }
       
-    // 4. PANNING (Nur wenn wir nichts anderes gemacht haben)
+    // ==========================================
+    // DEFAULT: PANNING
+    // ==========================================
     this.isDragging = true;
     this.startX = e.clientX;
     this.startScrollOffset = this.timeScale.scrollOffset;
@@ -180,46 +224,42 @@ export class InputManager {
 
     // 1. Dem Manager die aktuelle Position für das Fadenkreuz melden
     this.manager.setMousePos(x, y);
-
     const logicalCoords = this.getLogicalCoordinates(x, y);
 
-    // --- NEU: LIVE PREVIEW (Während des Zeichnens folgt Punkt 2 der Maus) ---
-    if (this.testLineStep === 1 && logicalCoords) {
-        this.manager.testLine.point2 = { index: logicalCoords.index, price: logicalCoords.price };
+
+    // --- LIVE PREVIEW ---
+    if (this.mode === 'draw_trendline' && this.drawStep === 1 && this.activeDrawingNode && logicalCoords) {
+        this.activeDrawingNode.point2 = { index: logicalCoords.index, price: logicalCoords.price };
     }
 
-    // --- NEU: POINT DRAGGING (Verschieben bestehender Punkte) ---
-    if (this.isDraggingPoint && this.draggedPointIndex && logicalCoords) {
+    // --- POINT DRAGGING ---
+    if (this.isDraggingPoint && this.activeDrawingNode && this.draggedPointIndex && logicalCoords) {
         const pointKey = `point${this.draggedPointIndex}` as 'point1' | 'point2';
-        this.manager.testLine[pointKey] = { index: logicalCoords.index, price: logicalCoords.price };
+        this.activeDrawingNode[pointKey] = { index: logicalCoords.index, price: logicalCoords.price };
     }
 
-    // 2. Logik: Panning (X-Achse verschieben)
+    // --- PANNING / SCALING ---
     if (this.isDragging) {
       const deltaX = e.clientX - this.startX;
       this.timeScale.scrollOffset = this.startScrollOffset + deltaX;
     }
-
-    // 3. Logik: Y-Achsen Scaling (Preis stauchen)
     if (this.isScalingY) {
       const deltaY = e.clientY - this.startY;
-      this.startY = e.clientY; // Startpunkt für den nächsten Frame aktualisieren
-
-      // Sauberer Aufruf am Manager
+      this.startY = e.clientY;
       this.manager.zoomPrice(deltaY);
     }
 
-    // --- NEU: Cursor Updates (Hover-Effekte) ---
     this.updateCursor(x, y);
   };
 
-  private onMouseUp = () => {
-    // Alle Modi zurücksetzen
+private onMouseUp = () => {
     this.isDragging = false;
     this.isScalingY = false;
     this.isDraggingPoint = false;
     this.draggedPointIndex = null;
-    this.canvas.style.cursor = 'default';
+    if (this.mode !== 'draw_trendline') { // Cursor nicht zurücksetzen, wenn wir noch zeichnen
+        this.canvas.style.cursor = 'default';
+    }
   };
 
   /**
@@ -228,27 +268,32 @@ export class InputManager {
   private updateCursor(x: number, y: number) {
     if (this.isDragging || this.isScalingY || this.isDraggingPoint) return;
 
+    if (this.mode === 'draw_trendline') {
+        this.canvas.style.cursor = 'crosshair';
+        return;
+    }
+
     const targetPane = this.manager.getPaneAt(y);
     const priceScale = targetPane?.getPriceScale() as any;
 
     if (targetPane && targetPane.getId() === 'main') {
-        // Prio 1: Über einem Anker (weißem Punkt)?
-        if (this.manager.testLine.isSelected && this.manager.testLine.hitTestAnchor(x, y, this.timeScale, priceScale)) {
-            this.canvas.style.cursor = 'move';
-            this.manager.testLine.isHovered = false; // Wir hovern den Punkt, nicht die Linie
-            return;
-        }
-        // Prio 2: Über der Linie?
-        if (this.manager.testLine.hitTest(x, y, this.timeScale, priceScale)) {
-            this.canvas.style.cursor = 'pointer';
-            this.manager.testLine.isHovered = true;
-            return;
+        for (let i = this.manager.drawingManager.shapes.length - 1; i >= 0; i--) {
+            const shape = this.manager.drawingManager.shapes[i];
+            
+            if (shape.isSelected && shape.hitTestAnchor(x, y, this.timeScale, priceScale)) {
+                this.canvas.style.cursor = 'move';
+                shape.isHovered = false;
+                return;
+            }
+            if (shape.hitTest(x, y, this.timeScale, priceScale)) {
+                this.canvas.style.cursor = 'pointer';
+                shape.isHovered = true;
+                return;
+            }
+            shape.isHovered = false;
         }
     }
-    
-    // Default
     this.canvas.style.cursor = 'default';
-    this.manager.testLine.isHovered = false;
   }
 
   private onWheel = (e: WheelEvent) => {
