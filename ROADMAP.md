@@ -48,9 +48,28 @@
 - [x] Basis-Render-Knoten für Zeichnungen (z.B. `TrendLineNode`).
 - [x] Interaktives Live-Zeichnen (Linie folgt der Maus vor dem zweiten Klick).
 - [x] Modifikation (Anfasser greifen, Start-/Endpunkte einzeln verschieben).
+  
+## Phase 9: Die Brücke (Status-Update)
+- [x] Adapter-Pattern definieren: Die ZChartAPI.ts steht als zentrales Interface.
+- [x] Event-System integrieren: Der ChartManager kann nun mittels emit und on mit der Außenwelt kommunizieren.
+- [ ] Integration deiner bestehenden UI: (Hier machen wir gerade weiter).
+- [ ] Externer DrawingStore: (Vorbereitet durch IDs und Event-Payloads).
 
-## Phase 9: Die Brücke (Externe UI & State Management)
-- [ ] Adapter-Pattern definieren (Kommunikation zwischen ZChart und Web-App).
-- [ ] Integration deiner bestehenden KLineChart-UI (Linke Leiste für Tool-Auswahl).
-- [ ] Externer DrawingStore: Auslagerung der Linien-Daten in deinen State.
-- [ ] Persistenz der User-Zeichnungen (Speichern/Laden aus Datenbank).
+### 9.1: Das API-Grundgerüst (Steuerung & Events)
+- [x] ZChartAPI Facade: Implementierung der Klasse als zentrales Interface für die externe UI.
+- [x] Tool-Switching: Methode setTool(type) implementieren, die den InputManager Modus schaltet.
+- [x] Event-System: Ein einfaches EventEmitter-System (z.B. on('drawingCreated'), on('drawingDeleted')) integrieren, damit die UI auf Aktionen im Canvas reagieren kann.
+
+### 9.2: Object Tree & Z-Layering (Die Kern-Anforderung)
+- [x] Unique IDs: Jedes Drawing erhält eine uuid beim Erstellen (wichtig für die Zuordnung zum Object Tree).
+- [x] Layer-Management: Methoden in der API zum Verschieben von Objekten im shapes-Array (moveToFront, moveToBack, swapLayers).
+- [x] Visibility-Toggle: Property isVisible in SceneNode / TrendLineNode einbauen, um Elemente über den Baum auszublenden.
+
+### 9.3: Externer State & Synchronisation (Data Flow)
+- [ ] Import/Export-Logik: Konverter schreiben, der ZChart-Nodes in dein Server-Format (JSON mit Timestamps) und zurück verwandelt.
+- [x] Der "Dirty"-Check: Mechanismus, der nach dem Verschieben eines Ankerpunkts das Update-Event an die Web-App feuert (onDrawingChanged).
+- [ ] KLineChart-Drop-In: Ersetzen der KLineChart-Instanz durch ZChart in der UI und Verknüpfung der Toolbar-Icons mit der ZChartAPI.
+
+### 9.4: Fortgeschrittene Tools (Phase 9 Erweiterung)
+- [ ] FiboNode: Implementierung des Fibonacci-Retracement-Tools (Geometrie & Auto-Labels).
+- [ ] Element-Löschen: Globaler Key-Listener (Entf-Taste) oder API-Call zum Entfernen selektierter Shapes.

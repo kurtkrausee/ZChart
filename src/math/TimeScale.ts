@@ -28,5 +28,28 @@ export class TimeScale {
   );
   
   return { start, end };
-}
+ }
+
+ /**
+   * Export: Wandelt einen Index in einen echten Zeitstempel um (für die Datenbank)
+   */
+  public indexToTime(index: number, dataArray: any[]): number | null {
+    // Runden, falls der Ankerpunkt zwischen zwei Kerzen liegt
+    const i = Math.round(index); 
+    if (i >= 0 && i < dataArray.length) {
+      return dataArray[i].timestamp; // HINWEIS: Hier 'timestamp' ggf. anpassen, je nachdem wie dein K-Line Array heißt (z.B. 'time')
+    }
+    return null;
+  }
+
+  /**
+   * Import: Sucht den passenden Index für einen Zeitstempel aus der Datenbank
+   */
+  public timeToIndex(time: number, dataArray: any[]): number {
+    // Sucht die Kerze, die exakt zu dieser Zeit gehört
+    const index = dataArray.findIndex(candle => candle.timestamp === time);
+    
+    // Fallback: Wenn exakte Zeit nicht gefunden wird (z.B. Wochenende), nimm das Ende
+    return index !== -1 ? index : dataArray.length - 1; 
+  }
 }

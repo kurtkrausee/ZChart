@@ -44,7 +44,10 @@ interface IChartManager {
   zoomPrice(deltaY: number): void;
   setMousePos(x: number | null, y: number | null): void;
   // NEU: Der Manager muss uns sagen können, welche Pane an Pixel-Y liegt
-  getPaneAt(pixelY: number): IPane | null; 
+  getPaneAt(pixelY: number): IPane | null;
+  
+  emit(eventName: string, data: any): void; // NEU: Event-Emitter-Methode
+  dataStore: any; // NEU: Damit der InputManager auf die Kerzen zugreifen kann
 }
 
 export class InputManager {
@@ -101,8 +104,12 @@ export class InputManager {
     // 2. Zeit und Index über die TimeScale ermitteln
     // HINWEIS: Wir nehmen an, dass TimeScale eine Methode indexToTime() oder ähnlich hat.
     const index = this.timeScale.xToIndex(pixelX);
-    // Fallback: Wenn indexToTime noch nicht existiert, fangen wir das hier für den Moment ab.
-    const time = (this.timeScale as any).indexToTime ? (this.timeScale as any).indexToTime(index) : null;
+    
+    // Wir holen uns alle Kerzen über das Interface vom Manager
+    // (Achtung: Dein IChartManager Interface braucht dafür evtl. Zugriff auf dataStore)
+    // Einfacher Workaround, da wir wissen, dass der Manager den DataStore hat:
+    const dataArray = this.manager.dataStore.getAllData();
+    const time = this.timeScale.indexToTime(index, dataArray);
 
     // 3. Preis über die spezifische PriceScale der getroffenen Pane ermitteln
     const paneTopOffset = targetPane.getTopOffset();
@@ -182,27 +189,47 @@ export class InputManager {
     // ==========================================
     // MODUS: ZEICHNEN (Neue Trendlinie)
     // ==========================================
-
-    
     else if (this.mode === 'draw_trendline') {
         if (this.drawStep === 0) {
             // Linie erstellen und in den Manager pushen
             const newLine = new TrendLineNode();
+            
+            // Punkt 1 und Punkt 2 initial auf die gleiche Koordinate setzen (für Vorschau)
             newLine.point1 = { index: logicalCoords.index, price: logicalCoords.price };
             newLine.point2 = { index: logicalCoords.index, price: logicalCoords.price }; 
+            
             this.manager.drawingManager.shapes.push(newLine);
             
             this.activeDrawingNode = newLine;
             this.drawStep = 1;
+            
+            // OPTIONAL: Event "Zeichnen gestartet" feuern, falls die UI reagieren soll
+            // this.manager.emit('drawingStarted', newLine); 
+            
             return;
         } else if (this.drawStep === 1 && this.activeDrawingNode) {
             // Endpunkt setzen und Modus automatisch beenden
             this.activeDrawingNode.point2 = { index: logicalCoords.index, price: logicalCoords.price };
             this.activeDrawingNode.isSelected = true; // Neu gezeichnete Linie direkt markieren
             
+            // --- NEU (Phase 9): Die Brücke benachrichtigen ---
+            // Wir feuern das Event, BEVOR wir die Referenz auf null setzen.
+            // Die Web-App erhält so das fertige Objekt inklusive seiner neuen ID.
+            this.manager.emit('drawingCreated', {
+                id: this.activeDrawingNode.id,
+                type: 'trendline',
+                data: {
+                    point1: this.activeDrawingNode.point1,
+                    point2: this.activeDrawingNode.point2
+                }
+            });
+
             this.drawStep = 0; 
             this.activeDrawingNode = null;
             this.mode = 'crosshair_and_pan'; // Zurück zum Standard-Mauszeiger!
+            
+            // Dem Manager sagen, dass er den Cursor aktualisieren und neu zeichnen soll
+            this.manager.setMousePos(x, y); 
             return;
         }
     }
@@ -253,10 +280,24 @@ export class InputManager {
   };
 
 private onMouseUp = () => {
+    // Wenn wir gerade einen Punkt verschoben haben...
+    if (this.isDraggingPoint && this.activeDrawingNode) {
+        // ...feuern wir ein Event mit den neuen Daten!
+        this.manager.emit('drawingChanged', {
+            id: this.activeDrawingNode.id,
+            type: 'trendline',
+            data: {
+                point1: this.activeDrawingNode.point1,
+                point2: this.activeDrawingNode.point2
+            }
+        });
+    }
+
     this.isDragging = false;
     this.isScalingY = false;
     this.isDraggingPoint = false;
     this.draggedPointIndex = null;
+
     if (this.mode !== 'draw_trendline') { // Cursor nicht zurücksetzen, wenn wir noch zeichnen
         this.canvas.style.cursor = 'default';
     }

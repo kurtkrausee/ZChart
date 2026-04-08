@@ -40,6 +40,9 @@ export class ChartManager {
 
   public drawingManager: DrawingManager = new DrawingManager();
 
+  // NEU: Speicher für Callbacks (die Brücke/API wird sich hier registrieren)
+  private eventListeners: Map<string, Array<(data: any) => void>> = new Map();
+
   constructor(containerId: string, userOptions?: DeepPartial<ChartConfig>) {
     const container = document.getElementById(containerId);
     if (!container) throw new Error(`Container #${containerId} nicht gefunden.`);
@@ -56,6 +59,26 @@ export class ChartManager {
     this.startRenderLoop();
 
     this.inputManager = new InputManager(this.canvas, this.timeScale, this);
+  }
+
+  /**
+   * Die zentrale Methode, um Daten nach außen an die Brücke zu senden.
+   */
+  public emit(event: string, data: any) {
+    const listeners = this.eventListeners.get(event);
+    if (listeners) {
+      listeners.forEach(callback => callback(data));
+    }
+  }
+
+  /**
+   * Wird von der ZChartAPI genutzt, um sich auf Events zu abonnieren.
+   */
+  public on(event: string, callback: (data: any) => void) {
+    if (!this.eventListeners.has(event)) {
+      this.eventListeners.set(event, []);
+    }
+    this.eventListeners.get(event)!.push(callback);
   }
 
   public addPane(pane: Pane) {
@@ -119,7 +142,7 @@ export class ChartManager {
     requestAnimationFrame(loop);
   }
 
-  private render() {
+  public render() {
     const rect = this.canvas.getBoundingClientRect();
     const width = rect.width;
     const height = rect.height;

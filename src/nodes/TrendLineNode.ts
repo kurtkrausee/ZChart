@@ -12,6 +12,10 @@ export interface LogicalPoint {
 }
 
 export class TrendLineNode {
+    public id: string = crypto.randomUUID(); // Eindeutige ID für den Object Tree
+    public name: string = 'Trendlinie';      // Anzeigename im Baum
+    public isVisible: boolean = true;
+    
     // Die zwei Ankerpunkte der Linie in der "Welt-Koordinate"
     public point1: LogicalPoint | null = null;
     public point2: LogicalPoint | null = null;
