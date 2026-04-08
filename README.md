@@ -1,6 +1,6 @@
 # ZChart Pro
 
-![ZChart Pro Dashboard](hero.png)
+<img align="right" width="500" src="https://github.com/user-attachments/assets/eaddfe90-3f2d-4b8b-9ed1-d6c7c095b8cd" alt="ZChart Pro Dashboard">
 
 ## Eine leistungsstarke, KI-generierte Charting-Engine für Finanzdaten
 
@@ -18,8 +18,8 @@ ZChart ist eine modulare TypeScript/Canvas Charting-Bibliothek, die entwickelt w
 
 ZChart ist aktuell als lokales Modul konzipiert.
 
-1. Kopiere den `src` Ordner in dein Web-Projekt (z.B. nach `libs/zchart`).
-2. Importiere die API in dein Frontend:
+1.  Kopiere den `src` Ordner in dein Web-Projekt (z.B. nach `libs/zchart`).
+2.  Importiere die API in dein Frontend:
 
 ```typescript
 import { ChartManager, ZChartAPI } from './libs/zchart/index';
