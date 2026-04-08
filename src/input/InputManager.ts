@@ -5,6 +5,8 @@ import type { ChartConfig } from '../core/ChartOptions';
 import { TrendLineNode } from '../nodes/tools/TrendLineNode';
 import { DrawingManager } from '../core/DrawingManager';
 import { FiboNode } from '../nodes/tools/FiboNode';
+import { EmojiNode } from '../nodes/tools/EmojiNode';
+
 
 // --- NEU (Phase 8): Interfaces für das Koordinaten-Mapping ---
 
@@ -27,7 +29,7 @@ export interface LogicalCoordinates {
 export interface IPane {
   getId(): string;
   getTopOffset(): number;
-  getPriceScale(): { yToPrice(y: number): number };
+  getPriceScale(): { yToPrice(y: number): number; priceToY(price: number): number };
 }
 
 // --- NEU: Werkzeug-Modi ---
@@ -281,33 +283,72 @@ export class InputManager {
     this.canvas.style.cursor = 'grabbing';
   };
 
-  private onMouseMove = (e: MouseEvent) => {
-    // Relative Maus-Koordinaten im Canvas berechnen
+private onMouseMove = (e: MouseEvent) => {
     const rect = this.canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    // 1. Dem Manager die aktuelle Position für das Fadenkreuz melden
     this.manager.setMousePos(x, y);
     const logicalCoords = this.getLogicalCoordinates(x, y);
 
-
-    // --- LIVE PREVIEW ---
-    if (this.mode === 'draw_trendline' && this.drawStep === 1 && this.activeDrawingNode && logicalCoords) {
-        this.activeDrawingNode.point2 = { index: logicalCoords.index, price: logicalCoords.price };
+    // --- 1. LIVE PREVIEWS (Beim ersten Zeichnen) ---
+    if (this.drawStep === 1 && this.activeDrawingNode && logicalCoords) {
+        // Vorschau für Trendlinie & Fibo
+        if (this.mode === 'draw_trendline' || this.mode === 'draw_fibo') {
+            this.activeDrawingNode.point2 = { index: logicalCoords.index, price: logicalCoords.price };
+        }
     }
 
-    // --- POINT DRAGGING ---
+    // --- 2. ADVANCED NODE INTERACTION (Rotation / Spiegeln) ---
+    // Wenn wir ein Emoji selektiert haben und gerade ziehen
+    if (this.isDragging && this.activeDrawingNode instanceof EmojiNode && this.activeDrawingNode.point1) {
+        
+        // Zuerst die aktuelle Pane und deren PriceScale holen
+        const targetPane = this.manager.getPaneAt(y);
+        const priceScale = targetPane?.getPriceScale() as any;
+        
+        // Wenn keine Preisskala gefunden wurde, können wir nicht rechnen
+        if (!priceScale) return;
+
+        const centerX = this.timeScale.indexToX(this.activeDrawingNode.point1.index);
+        
+        // Nutze nun die priceScale der Pane statt die des Managers:
+        const centerY = priceScale.priceToY(this.activeDrawingNode.point1.price);
+
+        // Delta zwischen Maus und Zentrum
+        const dx = x - centerX;
+        const dy = y - centerY;
+
+        // Fall A: Rotation (Winkel berechnen)
+        // Wir nutzen atan2, um den Winkel im Bogenmaß zu erhalten
+        // + Math.PI/2 korrigiert die Ausrichtung, da unser Handle oben sitzt
+        this.activeDrawingNode.rotation = Math.atan2(dy, dx) + Math.PI / 2;
+
+        // Fall B: Spiegeln (Mirroring)
+        // Wenn die Maus links vom Zentrum ist, flippen wir das Emoji
+        this.activeDrawingNode.scaleX = dx < 0 ? -1 : 1;
+        
+        // Fall C: Skalieren (Größe anpassen)
+        // Wir nutzen die Distanz zum Zentrum als neue Font-Größe
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance > 10) { // Mindestgröße zum Schutz
+            this.activeDrawingNode.size = distance * 1.2;
+        }
+    }
+
+    // --- 3. POINT DRAGGING (Bestehende Logik für Ankerpunkte) ---
     if (this.isDraggingPoint && this.activeDrawingNode && this.draggedPointIndex && logicalCoords) {
         const pointKey = `point${this.draggedPointIndex}` as 'point1' | 'point2';
         this.activeDrawingNode[pointKey] = { index: logicalCoords.index, price: logicalCoords.price };
     }
 
-    // --- PANNING / SCALING ---
-    if (this.isDragging) {
+    // --- 4. PANNING (Verschieben des Charts) ---
+    if (this.isDragging && !this.activeDrawingNode) { // Nur pannen, wenn kein Objekt bewegt wird
       const deltaX = e.clientX - this.startX;
       this.timeScale.scrollOffset = this.startScrollOffset + deltaX;
     }
+
+    // --- 5. PRICE SCALING (Y-Achse ziehen) ---
     if (this.isScalingY) {
       const deltaY = e.clientY - this.startY;
       this.startY = e.clientY;
