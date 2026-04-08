@@ -1,0 +1,317 @@
+Perfekt. Das ist genau richtig — zIndex ist in der Basis-Klasse, Pane.draw() sortiert bereits danach. Das Fundament steht.
+Was noch fehlt für den Object Tree und Persistenz:
+SceneNode braucht noch drei Dinge:
+typescript// nodes/SceneNode.ts
+import { TimeScale } from '../math/TimeScale';
+import { PriceScale } from '../math/PriceScale';
+import type { ChartConfig } from '../core/ChartOptions';
+
+export abstract class SceneNode {
+  public zIndex: number = 0;
+  
+  // NEU: Identität & Object Tree
+  public id: string = crypto.randomUUID();
+  public label: string = 'Unbenannt';     // wird im Object Tree angezeigt
+  public visible: boolean = true;          // Auge-Icon im Object Tree
+  public locked: boolean = false;          // Schloss-Icon im Object Tree
+
+  abstract draw(
+    ctx: CanvasRenderingContext2D,
+    timeScale: TimeScale,
+    priceScale: PriceScale,
+    options: ChartConfig
+  ): void;
+
+  // NEU: Hit-Testing — ist Mausposition auf diesem Node?
+  // Standard: nein. Überschreiben in TrendLineNode, EmojiNode etc.
+  public hitTest(
+    x: number,
+    y: number,
+    timeScale: TimeScale,
+    priceScale: PriceScale
+  ): boolean {
+    return false;
+  }
+
+  // NEU: Persistenz — jeder Node kann sich selbst speichern/laden
+  public abstract serialize(): object;
+  public abstract getType(): string;  // 'trendline' | 'emoji' | 'text' etc.
+}
+Und Pane braucht noch removeNode und getNodeList für den Object Tree:
+typescript// core/Pane.ts
+export class Pane {
+  public priceScale: PriceScale = new PriceScale();
+  public nodes: SceneNode[] = [];
+  public id: string;
+  public heightWeight: number;
+  public label: string = '';  // NEU: "RSI (14)", "Volumen" etc.
+
+  constructor(id: string, heightWeight: number) {
+    this.id = id;
+    this.heightWeight = heightWeight;
+  }
+
+  public addNode(node: SceneNode) {
+    this.nodes.push(node);
+  }
+
+  // NEU
+  public removeNode(id: string): void {
+    this.nodes = this.nodes.filter(n => n.id !== id);
+  }
+
+  // NEU: für Object Tree
+  public getNodeInfos() {
+    return this.nodes.map(n => ({
+      id:      n.id,
+      label:   n.label,
+      zIndex:  n.zIndex,
+      visible: n.visible,
+      locked:  n.locked,
+      type:    n.getType()
+    }));
+  }
+
+  public draw(ctx: CanvasRenderingContext2D, timeScale: TimeScale, options: ChartConfig) {
+    const sortedNodes = [...this.nodes]
+      .filter(n => n.visible)  // NEU: versteckte Nodes nicht zeichnen
+      .sort((a, b) => a.zIndex - b.zIndex);
+    
+    sortedNodes.forEach(node => {
+      node.draw(ctx, timeScale, this.priceScale, options);
+    });
+  }
+}
+Was das bedeutet für deine nächsten Schritte:
+Jetzt sofort (kleine Änderungen, grosser Effekt):
+├── SceneNode um id, label, visible, locked, serialize(), getType() ergänzen
+├── Pane um removeNode() und getNodeInfos() ergänzen
+└── Alle bestehenden Nodes (CandlestickNode, LineSeriesNode etc.)
+    um serialize() und getType() ergänzen
+
+Dann Phase 8 fertig:
+├── TrendLineNode: Anfasser, Hit-Testing, serialize()
+└── Live-Zeichnen im InputManager
+
+Dann Phase 9:
+└── Object Tree UI greift auf getNodeInfos() zu — fertig
+Wie sieht deine TrendLineNode.ts aktuell aus? Die ist der kritische nächste Baustein.
+
+
+
+Input 2:
+
+Sehr sauber. Der Code ist gut strukturiert, hitTest mit distanceToLineSegment ist genau richtig, Hover/Selected States sind drin, Anfasser werden gezeichnet.
+Was noch fehlt um sie vollständig zu machen:
+Drei Dinge — SceneNode als Basisklasse, serialize() und getType():
+typescript// nodes/TrendLineNode.ts
+import { SceneNode } from './SceneNode';
+import { TimeScale } from '../math/TimeScale';
+import { PriceScale } from '../math/PriceScale';
+import type { ChartConfig } from '../core/ChartOptions';
+import { distanceToLineSegment } from '../utils/geometry';
+
+export interface LogicalPoint {
+  index: number;
+  price: number;
+}
+
+export class TrendLineNode extends SceneNode {  // ← extends SceneNode neu
+
+  public point1: LogicalPoint | null = null;
+  public point2: LogicalPoint | null = null;
+  public isHovered: boolean = false;
+  public isSelected: boolean = false;
+
+  // NEU: Label für Object Tree
+  public label: string = 'Trendlinie';
+
+  private readonly HIT_TOLERANCE = 5;
+
+  // NEU: welcher Anfasser wird gerade gezogen? null | 'p1' | 'p2'
+  public draggingAnchor: 'p1' | 'p2' | 'line' | null = null;
+
+  public draw(
+    ctx: CanvasRenderingContext2D,
+    timeScale: TimeScale,
+    priceScale: PriceScale,
+    options: ChartConfig
+  ): void {
+    if (!this.point1 || !this.point2) return;
+
+    const x1 = timeScale.indexToX(this.point1.index);
+    const y1 = priceScale.priceToY(this.point1.price);
+    const x2 = timeScale.indexToX(this.point2.index);
+    const y2 = priceScale.priceToY(this.point2.price);
+
+    ctx.save();
+    ctx.strokeStyle = this.isSelected
+      ? '#FFD700'
+      : this.isHovered ? '#4ea2ff' : '#2962FF';
+    ctx.lineWidth = this.isSelected ? 3 : 2;
+    ctx.lineCap = 'round';
+
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+
+    if (this.isSelected || this.isHovered) {
+      this.drawAnchor(ctx, x1, y1, ctx.strokeStyle);
+      this.drawAnchor(ctx, x2, y2, ctx.strokeStyle);
+    }
+
+    ctx.restore();
+  }
+
+  private drawAnchor(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    color: string | CanvasGradient | CanvasPattern
+  ): void {
+    ctx.beginPath();
+    ctx.arc(x, y, 4, 0, 2 * Math.PI);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    ctx.strokeStyle = color;
+    ctx.stroke();
+  }
+
+  public hitTest(
+    pixelX: number,
+    pixelY: number,
+    timeScale: TimeScale,
+    priceScale: PriceScale
+  ): boolean {
+    if (!this.point1 || !this.point2) return false;
+
+    const x1 = timeScale.indexToX(this.point1.index);
+    const y1 = priceScale.priceToY(this.point1.price);
+    const x2 = timeScale.indexToX(this.point2.index);
+    const y2 = priceScale.priceToY(this.point2.price);
+
+    return distanceToLineSegment(pixelX, pixelY, x1, y1, x2, y2) <= this.HIT_TOLERANCE;
+  }
+
+  // NEU: welcher Anfasser liegt unter dem Mauszeiger?
+  // Gibt null zurück wenn keiner getroffen, sonst 'p1' | 'p2'
+  public hitTestAnchor(
+    pixelX: number,
+    pixelY: number,
+    timeScale: TimeScale,
+    priceScale: PriceScale
+  ): 'p1' | 'p2' | null {
+    if (!this.point1 || !this.point2) return null;
+
+    const x1 = timeScale.indexToX(this.point1.index);
+    const y1 = priceScale.priceToY(this.point1.price);
+    const x2 = timeScale.indexToX(this.point2.index);
+    const y2 = priceScale.priceToY(this.point2.price);
+
+    const ANCHOR_RADIUS = 8;  // etwas grosszügiger als Linie
+    const d1 = Math.hypot(pixelX - x1, pixelY - y1);
+    const d2 = Math.hypot(pixelX - x2, pixelY - y2);
+
+    if (d1 <= ANCHOR_RADIUS) return 'p1';
+    if (d2 <= ANCHOR_RADIUS) return 'p2';
+    return null;
+  }
+
+  // NEU: Persistenz — Linie als JSON speichern
+  public serialize(): object {
+    return {
+      type:   this.getType(),
+      id:     this.id,
+      label:  this.label,
+      zIndex: this.zIndex,
+      point1: this.point1,
+      point2: this.point2,
+      style: {
+        color:     '#2962FF',
+        lineWidth: 2
+      }
+    };
+  }
+
+  // NEU: Wiederherstellen aus gespeichertem JSON
+  public static deserialize(data: any): TrendLineNode {
+    const node = new TrendLineNode();
+    node.id     = data.id;
+    node.label  = data.label ?? 'Trendlinie';
+    node.zIndex = data.zIndex ?? 0;
+    node.point1 = data.point1;
+    node.point2 = data.point2;
+    return node;
+  }
+
+  public getType(): string {
+    return 'trendline';
+  }
+}
+Der wichtigste neue Teil ist hitTestAnchor.
+Das ist was die Modifikation ermöglicht. Im InputManager rufst du das so ab:
+typescript// InputManager.ts — Mousedown Logik (vereinfacht)
+onMouseDown(e: MouseEvent) {
+  const x = e.offsetX;
+  const y = e.offsetY;
+
+  for (const node of this.getAllTrendLines()) {
+    // Erst Anfasser prüfen — hat Priorität über Linie
+    const anchor = node.hitTestAnchor(x, y, timeScale, priceScale);
+    if (anchor) {
+      node.draggingAnchor = anchor;  // 'p1' oder 'p2'
+      node.isSelected = true;
+      return;
+    }
+
+    // Dann Linie selbst prüfen
+    if (node.hitTest(x, y, timeScale, priceScale)) {
+      node.draggingAnchor = 'line';  // ganze Linie verschieben
+      node.isSelected = true;
+      return;
+    }
+  }
+
+  // Nichts getroffen → alle deselektieren
+  this.getAllTrendLines().forEach(n => n.isSelected = false);
+}
+
+onMouseMove(e: MouseEvent) {
+  const x = e.offsetX;
+  const y = e.offsetY;
+
+  for (const node of this.getAllTrendLines()) {
+    if (node.draggingAnchor === 'p1') {
+      // Pixel zurück in Welt-Koordinaten
+      node.point1 = {
+        index: timeScale.xToIndex(x),
+        price: priceScale.yToPrice(y)
+      };
+    } else if (node.draggingAnchor === 'p2') {
+      node.point2 = {
+        index: timeScale.xToIndex(x),
+        price: priceScale.yToPrice(y)
+      };
+    } else if (node.draggingAnchor === 'line') {
+      // Beide Punkte gleichzeitig verschieben
+      const dx = timeScale.xToIndex(x) - timeScale.xToIndex(this.lastMouseX);
+      const dy = priceScale.yToPrice(y) - priceScale.yToPrice(this.lastMouseY);
+      if (node.point1) { node.point1.index += dx; node.point1.price += dy; }
+      if (node.point2) { node.point2.index += dx; node.point2.price += dy; }
+    }
+    this.chart.invalidate();
+  }
+
+  this.lastMouseX = x;
+  this.lastMouseY = y;
+}
+
+onMouseUp() {
+  this.getAllTrendLines().forEach(n => n.draggingAnchor = null);
+}
+Zusammenfassung was jetzt noch offen ist für Phase 8:
+Nur noch zwei Dinge fehlen wirklich:
+Erstens das Live-Zeichnen — eine temporäre Preview-Linie die der Maus folgt bevor der zweite Klick kommt. Das ist ein separater previewNode im InputManager der nach dem zweiten Klick durch eine echte TrendLineNode ersetzt wird.
+Zweitens die serialize/deserialize Logik in den anderen bestehenden Nodes nachrüsten — CandlestickNode, LineSeriesNode, HistogramNode brauchen das auch, auch wenn sie nie gespeichert werden müssen. Einfach leeres Objekt zurückgeben reicht.
+Wie hast du aktuell den InputManager strukturiert — ist der Zeichenmodus schon drin oder noch nicht?

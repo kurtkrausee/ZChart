@@ -54,6 +54,10 @@ export class InputManager {
   // NEU: Zählt die Klicks für unsere Test-Linie (0 = nichts, 1 = Startpunkt gesetzt)
   private testLineStep: number = 0;
 
+  // Status für das Verschieben von Punkten
+  private isDraggingPoint: boolean = false;
+  private draggedPointIndex: 1 | 2 | null = null;
+
   constructor(canvas: HTMLCanvasElement, timeScale: TimeScale, manager: IChartManager) {
     this.canvas = canvas;
     this.timeScale = timeScale;
@@ -118,52 +122,54 @@ export class InputManager {
       this.isScalingY = true;
       this.startY = e.clientY;
       this.canvas.style.cursor = 'ns-resize';
-    } else {
-      // Modus: Chart verschieben
-      this.isDragging = true;
-      this.startX = e.clientX;
-      this.startScrollOffset = this.timeScale.scrollOffset;
-      this.canvas.style.cursor = 'grabbing';
+      return;
+    } 
 
-      // --- NEU (Phase 8): Logische Koordinaten beim Klick berechnen ---
-      const logicalCoords = this.getLogicalCoordinates(x, y);
-      if (logicalCoords && logicalCoords.paneId === 'main') {
-        
-        // 1. HIT-TESTING: Haben wir auf eine bestehende Linie geklickt?
-        const targetPane = this.manager.getPaneAt(y);
-        if (targetPane) {
-          const isHit = this.manager.testLine.hitTest(
-            x, y, this.timeScale, targetPane.getPriceScale() as any
-          );
-          
-          if (isHit) {
-            // Linie auswählen/abwählen und abbrechen (nicht neu zeichnen)
-            this.manager.testLine.isSelected = !this.manager.testLine.isSelected;
-            return; 
-          }
+    // --- NEU (Phase 8): Logische Koordinaten beim Klick berechnen ---
+    const logicalCoords = this.getLogicalCoordinates(x, y);
+    if (!logicalCoords || logicalCoords.paneId !== 'main') return;
+
+    const targetPane = this.manager.getPaneAt(y);
+    const priceScale = targetPane?.getPriceScale() as any;
+
+    // 1. Logik: Punkt-Verschieben (Hat Priorität, wenn Linie selektiert ist)
+    if (this.manager.testLine.isSelected) {
+        const anchorHit = this.manager.testLine.hitTestAnchor(x, y, this.timeScale, priceScale);
+        if (anchorHit) {
+            this.isDraggingPoint = true;
+            this.draggedPointIndex = anchorHit;
+            return; // Verhindert Panning während des Draggings
         }
-
-        // 2. ZEICHNEN: Wenn wir die Linie nicht getroffen haben, zeichnen wir neu
-        if (this.testLineStep === 0) {
-          // Erster Klick: Startpunkt setzen, Endpunkt leeren
-          this.manager.testLine.point1 = { index: logicalCoords.index, price: logicalCoords.price };
-          this.manager.testLine.point2 = null;
-          this.testLineStep = 1;
-          return;
-        } else if (this.testLineStep === 1) {
-          this.manager.testLine.point2 = { index: logicalCoords.index, price: logicalCoords.price };
-          this.testLineStep = 0; 
-          return; // <-- Abbruch!
-        }
-      }
-      
-      // 3. PANNING (Nur wenn wir nichts anderes gemacht haben)
-      this.isDragging = true;
-      this.startX = e.clientX;
-      this.startScrollOffset = this.timeScale.scrollOffset;
-      this.canvas.style.cursor = 'grabbing';
-
     }
+
+    // 2. Logik: Linien-Selektion (Hit-Test)
+    const isLineHit = this.manager.testLine.hitTest(x, y, this.timeScale, priceScale);
+    if (isLineHit) {
+      // Linie auswählen/abwählen und abbrechen (nicht neu zeichnen)
+      this.manager.testLine.isSelected = !this.manager.testLine.isSelected;
+      return; 
+    }
+
+    // 3. ZEICHNEN: Wenn wir die Linie nicht getroffen haben, zeichnen wir neu
+    if (this.testLineStep === 0) {
+      // Erster Klick: Startpunkt setzen, Endpunkt vorläufig auf den gleichen Punkt setzen
+      this.manager.testLine.point1 = { index: logicalCoords.index, price: logicalCoords.price };
+      this.manager.testLine.point2 = { index: logicalCoords.index, price: logicalCoords.price }; 
+      this.testLineStep = 1;
+      this.manager.testLine.isSelected = false; // Während des Zeichnens nicht selektiert
+      return;
+    } else if (this.testLineStep === 1) {
+      // Zweiter Klick: Endpunkt fixieren
+      this.manager.testLine.point2 = { index: logicalCoords.index, price: logicalCoords.price };
+      this.testLineStep = 0; 
+      return; // <-- Abbruch!
+    }
+      
+    // 4. PANNING (Nur wenn wir nichts anderes gemacht haben)
+    this.isDragging = true;
+    this.startX = e.clientX;
+    this.startScrollOffset = this.timeScale.scrollOffset;
+    this.canvas.style.cursor = 'grabbing';
   };
 
   private onMouseMove = (e: MouseEvent) => {
@@ -175,16 +181,17 @@ export class InputManager {
     // 1. Dem Manager die aktuelle Position für das Fadenkreuz melden
     this.manager.setMousePos(x, y);
 
-    // --- NEU: Hover-Effekt (Hit-Testing bei Mausbewegung) ---
-    const targetPane = this.manager.getPaneAt(y);
-    if (targetPane && targetPane.getId() === 'main') {
-      const isHit = this.manager.testLine.hitTest(
-        x, y, this.timeScale, targetPane.getPriceScale() as any
-      );
-      
-      // Zustand aktualisieren (Mauszeiger zu Hand ändern, falls getroffen)
-      this.manager.testLine.isHovered = isHit;
-      this.canvas.style.cursor = isHit ? 'pointer' : (this.isDragging ? 'grabbing' : 'default');
+    const logicalCoords = this.getLogicalCoordinates(x, y);
+
+    // --- NEU: LIVE PREVIEW (Während des Zeichnens folgt Punkt 2 der Maus) ---
+    if (this.testLineStep === 1 && logicalCoords) {
+        this.manager.testLine.point2 = { index: logicalCoords.index, price: logicalCoords.price };
+    }
+
+    // --- NEU: POINT DRAGGING (Verschieben bestehender Punkte) ---
+    if (this.isDraggingPoint && this.draggedPointIndex && logicalCoords) {
+        const pointKey = `point${this.draggedPointIndex}` as 'point1' | 'point2';
+        this.manager.testLine[pointKey] = { index: logicalCoords.index, price: logicalCoords.price };
     }
 
     // 2. Logik: Panning (X-Achse verschieben)
@@ -201,14 +208,48 @@ export class InputManager {
       // Sauberer Aufruf am Manager
       this.manager.zoomPrice(deltaY);
     }
+
+    // --- NEU: Cursor Updates (Hover-Effekte) ---
+    this.updateCursor(x, y);
   };
 
   private onMouseUp = () => {
     // Alle Modi zurücksetzen
     this.isDragging = false;
     this.isScalingY = false;
+    this.isDraggingPoint = false;
+    this.draggedPointIndex = null;
     this.canvas.style.cursor = 'default';
   };
+
+  /**
+   * Hilfsfunktion für dynamische Cursor-Icons
+   */
+  private updateCursor(x: number, y: number) {
+    if (this.isDragging || this.isScalingY || this.isDraggingPoint) return;
+
+    const targetPane = this.manager.getPaneAt(y);
+    const priceScale = targetPane?.getPriceScale() as any;
+
+    if (targetPane && targetPane.getId() === 'main') {
+        // Prio 1: Über einem Anker (weißem Punkt)?
+        if (this.manager.testLine.isSelected && this.manager.testLine.hitTestAnchor(x, y, this.timeScale, priceScale)) {
+            this.canvas.style.cursor = 'move';
+            this.manager.testLine.isHovered = false; // Wir hovern den Punkt, nicht die Linie
+            return;
+        }
+        // Prio 2: Über der Linie?
+        if (this.manager.testLine.hitTest(x, y, this.timeScale, priceScale)) {
+            this.canvas.style.cursor = 'pointer';
+            this.manager.testLine.isHovered = true;
+            return;
+        }
+    }
+    
+    // Default
+    this.canvas.style.cursor = 'default';
+    this.manager.testLine.isHovered = false;
+  }
 
   private onWheel = (e: WheelEvent) => {
     e.preventDefault();

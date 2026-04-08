@@ -23,6 +23,8 @@ export class TrendLineNode {
     // Toleranz-Radius für den Hit-Test (in Pixeln)
     private readonly HIT_TOLERANCE = 5;
 
+    private readonly ANCHOR_RADIUS = 6; // Etwas größerer Radius für einfacheres Greifen
+
     public draw(
         ctx: CanvasRenderingContext2D,
         timeScale: TimeScale,
@@ -69,6 +71,34 @@ export class TrendLineNode {
         ctx.fill();
         ctx.strokeStyle = color;
         ctx.stroke();
+    }
+
+    /**
+     * Prüft, welcher Ankerpunkt getroffen wurde.
+     * @returns 1 für Punkt1, 2 für Punkt2, null für keinen Treffer.
+     */
+    public hitTestAnchor(
+        pixelX: number, 
+        pixelY: number, 
+        timeScale: TimeScale, 
+        priceScale: PriceScale
+    ): 1 | 2 | null {
+        if (!this.point1 || !this.point2) return null;
+
+        const x1 = timeScale.indexToX(this.point1.index);
+        const y1 = priceScale.priceToY(this.point1.price);
+        const x2 = timeScale.indexToX(this.point2.index);
+        const y2 = priceScale.priceToY(this.point2.price);
+
+        // Distanz zu Punkt 1 prüfen
+        const dist1 = Math.sqrt((pixelX - x1) ** 2 + (pixelY - y1) ** 2);
+        if (dist1 <= this.ANCHOR_RADIUS) return 1;
+
+        // Distanz zu Punkt 2 prüfen
+        const dist2 = Math.sqrt((pixelX - x2) ** 2 + (pixelY - y2) ** 2);
+        if (dist2 <= this.ANCHOR_RADIUS) return 2;
+
+        return null;
     }
 
     /**
