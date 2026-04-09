@@ -4,6 +4,7 @@ import type { ChartConfig } from '../../core/ChartOptions';
 import { TimeScale } from '../../math/TimeScale';
 
 export class XAxisNode {
+  public role = 'axis';
   public draw(
     ctx: CanvasRenderingContext2D,
     chartContentWidth: number, // Breite ohne die rechte Preisachse

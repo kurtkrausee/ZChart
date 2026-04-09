@@ -6,6 +6,7 @@ import { SceneNode } from './SceneNode';
 import type { ChartConfig } from '../../core/ChartOptions';
 
 export class StaticLineNode extends SceneNode {
+  public role = 'background'; 
   private value: number;
   private color: string;
   private lineDash: number[];

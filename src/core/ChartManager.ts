@@ -43,9 +43,16 @@ export class ChartManager {
   // NEU: Speicher für Callbacks (die Brücke/API wird sich hier registrieren)
   private eventListeners: Map<string, Array<(data: any) => void>> = new Map();
 
-  constructor(containerId: string, userOptions?: DeepPartial<ChartConfig>) {
-    const container = document.getElementById(containerId);
-    if (!container) throw new Error(`Container #${containerId} nicht gefunden.`);
+  constructor(containerOrId: string | HTMLElement, userOptions?: DeepPartial<ChartConfig>) {
+    // Falls es ein String ist -> getElementById, sonst direkt das Element nehmen
+    const container = typeof containerOrId === 'string' 
+      ? document.getElementById(containerOrId) 
+      : containerOrId;
+
+    if (!container) {
+      throw new Error(`Container ${containerOrId} nicht gefunden.`);
+  }
+  
     this.container = container;
 
     this.container.innerHTML = '';
@@ -117,6 +124,61 @@ export class ChartManager {
     }
     return null;
   }
+
+  // ==========================================
+  // NEU: CORE API BEFEHLE (Phase 12)
+  // ==========================================
+
+  /**
+   * Snapshot-Tool: Exportiert den Canvas als Base64-Bild-String.
+   */
+  public toDataURL(): string {
+    return this.canvas.toDataURL('image/png');
+  }
+
+  /**
+   * Zoom-API: Verändert die Kerzenbreite auf der X-Achse.
+   */
+  public zoomTime(factor: number) {
+    this.timeScale.candleWidth *= factor;
+    // Grenzen einhalten (nicht zu klein, nicht zu groß)
+    this.timeScale.candleWidth = Math.max(1, Math.min(this.timeScale.candleWidth, 100));
+  }
+
+  /**
+   * Wird von der API aufgerufen, wenn z.B. das Theme wechselt.
+   * Da dein ChartManager ohnehin in einem durchgehenden Loop 
+   * (startRenderLoop) läuft, brauchen wir hier aktuell nichts tun.
+   * Es sichert aber die Kompatibilität für Performance-Updates später ab!
+   */
+  public requestRedraw() {
+     // this.render(); (Aktuell nicht nötig wegen requestAnimationFrame)
+  }
+
+  // --- Node-Verwaltung für den ChartStyle-Wechsler ---
+  public getNodes() {
+    const mainPane = this.panes.find(p => p.id === 'main');
+    return mainPane ? (mainPane as any).nodes || [] : [];
+  }
+
+  public removeNode(id: string) {
+    const mainPane = this.panes.find(p => p.id === 'main');
+    if (mainPane && (mainPane as any).nodes) {
+        (mainPane as any).nodes = (mainPane as any).nodes.filter((n: any) => n.id !== id);
+    }
+  }
+
+  public addNode(node: any) {
+    const mainPane = this.panes.find(p => p.id === 'main');
+    if (mainPane) {
+        if (typeof (mainPane as any).addNode === 'function') {
+            (mainPane as any).addNode(node);
+        } else if ((mainPane as any).nodes) {
+            (mainPane as any).nodes.push(node);
+        }
+    }
+  }
+  // ==========================================
 
   private setupResizing() {
     const resizeObserver = new ResizeObserver(() => this.updateSize());
@@ -200,7 +262,16 @@ export class ChartManager {
     // 5. X-Achse & Crosshair
     this.xAxisNode.draw(this.ctx, chartContentWidth, height, this.timeScale, this.options);
 
-    if (this.mousePos) {
+    // Crosshair NUR zeichnen, wenn wir im Pan-Modus sind ODER wenn ein Zeichenwerkzeug aktiv ist, 
+    // ABER NICHT, wenn wir gerade ein Objekt verschieben (isDraggingPoint)
+    const mode = this.inputManager?.mode || 'crosshair_and_pan';
+    const isDrawing = mode.startsWith('draw_');
+    const isPanning = mode === 'crosshair_and_pan';
+    
+    // (Optional: Wenn du das Crosshair GANZ ausblenden willst beim normalen Pannen, 
+    // dann setze die Bedingung unten einfach auf `if (this.mousePos && isDrawing)`)
+
+    if (this.mousePos && (isDrawing || isPanning)) {
       this.crosshairNode.draw(
         this.ctx, this.mousePos, chartContentWidth, height, 
         this.timeScale, (y) => this.getPaneAt(y), this.options

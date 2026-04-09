@@ -7,6 +7,7 @@ import { DataStore } from '../../data/DataStore';
 import type { ChartConfig } from '../../core/ChartOptions';
 
 export class VolumeNode extends SceneNode {
+  public role = 'series';
   private dataStore: DataStore;
 
   constructor(dataStore: DataStore) {

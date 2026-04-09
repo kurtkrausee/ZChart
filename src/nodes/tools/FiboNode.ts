@@ -4,13 +4,15 @@ import { TimeScale } from '../../math/TimeScale';
 import { PriceScale } from '../../math/PriceScale';
 import type { ChartConfig } from '../../core/ChartOptions';
 import { distanceToLineSegment } from '../../utils/geometry';
+import { SceneNode } from '../core/SceneNode';
 
 export interface LogicalPoint {
     index: number;
     price: number;
 }
 
-export class FiboNode {
+export class FiboNode extends SceneNode {
+    public role = 'tool'; 
     public id: string = crypto.randomUUID();
     public name: string = 'Fibonacci Retracement';
     public isVisible: boolean = true;

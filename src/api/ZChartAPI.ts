@@ -2,19 +2,66 @@
 import { ChartManager } from '../core/ChartManager';
 import { TrendLineNode } from '../nodes/tools/TrendLineNode';
 
+// --- NEU: Typ für das Event-System ---
+export type ZChartEventCallback = (data: any) => void;
+
 export class ZChartAPI {
     private manager: ChartManager;
+    
+    // --- NEU: Speicher für die Event-Listener ---
+    private listeners: Record<string, ZChartEventCallback[]> = {};
 
     constructor(manager: ChartManager) {
         this.manager = manager;
     }
 
+    // ==========================================
+    // NEU: ZChartAPI EventEmitter (Phase 12)
+    // ==========================================
+    public on(event: string, callback: ZChartEventCallback): void {
+        if (!this.listeners[event]) this.listeners[event] = [];
+        this.listeners[event].push(callback);
+    }
+
+    public off(event: string, callback: ZChartEventCallback): void {
+        if (!this.listeners[event]) return;
+        this.listeners[event] = this.listeners[event].filter(cb => cb !== callback);
+    }
+
+    public emit(event: string, data?: any): void {
+        if (this.listeners[event]) {
+            this.listeners[event].forEach(cb => cb(data));
+        }
+    }
+
     /**
      * Ermöglicht der Web-App, auf Ereignisse zu hören.
+     * (Angepasst: Nutzt jetzt intern das neue Event-System)
      */
     public subscribe(event: string, callback: (data: any) => void) {
-        this.manager.on(event, callback);
+        this.on(event, callback);
     }
+
+    // ==========================================
+    // NEU: Smart Clear (Nutzt Node-Rollen)
+    // ==========================================
+    /**
+     * Löscht alle Nutzer-Zeichnungen, ignoriert aber Achsen und Kerzen
+     */
+    public clearAllDrawings() {
+        const shapes = this.manager.drawingManager.shapes;
+        // Finde nur die Elemente mit der Rolle 'tool'
+        const toolsToRemove = shapes.filter(s => s.role === 'tool');
+        
+        // Lösche sie gezielt
+        toolsToRemove.forEach(tool => {
+            this.manager.drawingManager.removeDrawing(tool.id);
+        });
+    }
+
+    // ==========================================
+    // DEIN ORIGINAL CODE (Unverändert)
+    // ==========================================
 
     /**
      * Steuert das aktive Werkzeug (z.B. von der Toolbar aufgerufen)
@@ -144,18 +191,17 @@ export class ZChartAPI {
     }
 
     public setTheme(theme: 'light' | 'dark'): void {
-    if (theme === 'light') {
-        this.manager.options.colors.background = '#ffffff';
-        this.manager.options.colors.text = '#333333';
-        this.manager.options.colors.axisLine = '#e0e0e0';
-        this.manager.options.colors.grid = '#f0f0f0';
-    } else {
-        this.manager.options.colors.background = '#131722';
-        this.manager.options.colors.text = '#d1d4dc';
-        this.manager.options.colors.axisLine = '#363c4e';
-        this.manager.options.colors.grid = '#2a2e39';
+        if (theme === 'light') {
+            this.manager.options.colors.background = '#ffffff';
+            this.manager.options.colors.text = '#333333';
+            this.manager.options.colors.axisLine = '#e0e0e0';
+            this.manager.options.colors.grid = '#f0f0f0';
+        } else {
+            this.manager.options.colors.background = '#131722';
+            this.manager.options.colors.text = '#d1d4dc';
+            this.manager.options.colors.axisLine = '#363c4e';
+            this.manager.options.colors.grid = '#2a2e39';
+        }
+        this.manager.render();
     }
-    this.manager.render();
-}
-
 }

@@ -5,6 +5,7 @@ import { PriceScale } from '../../math/PriceScale';
 import { formatKiloMega, formatPrice } from '../../utils/Formatters'; // Unsere neuen Helfer
 
 export class YAxisNode {
+  public role = 'axis';
   public draw(
     ctx: CanvasRenderingContext2D,
     paneHeight: number,

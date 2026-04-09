@@ -6,6 +6,7 @@ import { SceneNode } from '../core/SceneNode';
 import type { ChartConfig } from '../../core/ChartOptions';
 
 export class LineSeriesNode extends SceneNode {
+  public role = 'series';
   // Explizit deklarieren
   private dataStore: any;
   private dataKey: string;

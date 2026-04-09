@@ -6,6 +6,7 @@ import { SceneNode } from '../core/SceneNode';
 import type { ChartConfig } from '../../core/ChartOptions';
 
 export class HistogramNode extends SceneNode {
+  public role = 'series'; 
   private dataStore: any;
   private dataKey: string;
   private colorUp: string;

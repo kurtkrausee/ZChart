@@ -5,9 +5,10 @@ import { FiboNode } from '../nodes/tools/FiboNode';
 import { TimeScale } from '../math/TimeScale';
 import { PriceScale } from '../math/PriceScale';
 import type { ChartConfig } from './ChartOptions';
+import { SceneNode } from '../nodes/core/SceneNode';
 
 export class DrawingManager {
-    public shapes: Array<TrendLineNode | FiboNode> = []; 
+    public shapes: SceneNode[] = [];
 
     /**
      * Zeichnet alle sichtbaren Formen auf den Canvas.

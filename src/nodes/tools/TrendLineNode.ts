@@ -1,19 +1,23 @@
 // nodes/TrendLineNode.ts
 
 import { TimeScale } from '../../math/TimeScale';
-// HINWEIS: Je nachdem, wie du die PriceScale exportiert hast, Pfad anpassen
 import { PriceScale } from '../../math/PriceScale'; 
 import type { ChartConfig } from '../../core/ChartOptions';
 import { distanceToLineSegment } from '../../utils/geometry';
+import { SceneNode } from '../core/SceneNode';
 
+// 1. Das Interface muss außerhalb der Klasse stehen!
 export interface LogicalPoint {
     index: number;
     price: number;
 }
 
-export class TrendLineNode {
+// 2. Hier startet die Klasse (nur EINMAL deklariert)
+export class TrendLineNode extends SceneNode {
+    public role = 'tool'; // <--- Hier sitzt die Rolle perfekt!
+    
     public id: string = crypto.randomUUID(); // Eindeutige ID für den Object Tree
-    public name: string = 'Trendlinie';      // Anzeigename im Baum
+    public name: string = 'Trendlinie';     // Anzeigename im Baum
     public isVisible: boolean = true;
     
     // Die zwei Ankerpunkte der Linie in der "Welt-Koordinate"

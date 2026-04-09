@@ -6,9 +6,10 @@ import { TrendLineNode } from '../nodes/tools/TrendLineNode';
 import { DrawingManager } from '../core/DrawingManager';
 import { FiboNode } from '../nodes/tools/FiboNode';
 import { EmojiNode } from '../nodes/tools/EmojiNode';
+import { TextNode } from '../nodes/tools/TextNode';
 
 
-// --- NEU (Phase 8): Interfaces für das Koordinaten-Mapping ---
+// --- Interfaces für das Koordinaten-Mapping ---
 
 export interface LogicalCoordinates {
   x: number;          // Roher Pixel-Wert (z.B. für UI-Overlays)
@@ -17,10 +18,6 @@ export interface LogicalCoordinates {
   time: number | null; // Unix-Timestamp der X-Achse (null, falls außerhalb der Daten)
   index: number;      // Logischer Daten-Index (wichtig für Snapping von Linien)
   price: number;      // Der reale Preis oder Indikator-Wert der Y-Achse
-}
-
-export interface LogicalCoordinates {
-  x: number; y: number; paneId: string; time: number | null; index: number; price: number;
 }
 
 /**
@@ -33,8 +30,7 @@ export interface IPane {
 }
 
 // --- NEU: Werkzeug-Modi ---
-// --- NEU: Werkzeug-Modi (als String Union, Vite-kompatibel!) ---
-export type InputMode = 'crosshair_and_pan' | 'draw_trendline' | 'draw_fibo';
+export type InputMode = 'crosshair_and_pan' | 'draw_trendline' | 'draw_fibo' | 'draw_emoji' | 'draw_text';
 
 
 /**
@@ -72,7 +68,7 @@ export class InputManager {
 
  // Status fürs Zeichnen
   private drawStep: number = 0;
-  private activeDrawingNode: TrendLineNode | FiboNode | null = null; // Die Linie, die gerade gezeichnet/verschoben wird
+  private activeDrawingNode: any = null;
 
   // Status für das Verschieben von Punkten
   private isDraggingPoint: boolean = false;
@@ -275,6 +271,81 @@ export class InputManager {
     }
 
     // ==========================================
+    // MODUS: ZEICHNEN (Neuer Text)
+    // ==========================================
+    else if (this.mode === 'draw_text') {
+        if (this.drawStep === 0) {
+            // 1. Die neue Node erstellen und direkt im Chart platzieren
+            const newTextNode = new TextNode();
+            newTextNode.point1 = { index: logicalCoords.index, price: logicalCoords.price };
+            
+            // Vorübergehend "unsichtbar" machen oder leeren Text setzen
+            this.manager.drawingManager.shapes.push(newTextNode);
+            
+            // 2. Das temporäre HTML-Eingabefeld erstellen
+            const inputEl = document.createElement('input');
+            inputEl.type = 'text';
+            inputEl.style.position = 'absolute';
+            // Wir platzieren es exakt da, wo der User geklickt hat (mit ein bisschen Offset)
+            inputEl.style.left = `${e.clientX}px`;
+            inputEl.style.top = `${e.clientY - 10}px`; 
+            inputEl.style.zIndex = '1000'; // Sicherstellen, dass es GANZ vorne ist
+            inputEl.style.fontSize = '16px';
+            inputEl.style.background = 'transparent';
+            inputEl.style.color = '#2962FF'; // Eine schöne blaue Farbe für die Eingabe
+            inputEl.style.border = '1px dashed #2962FF';
+            inputEl.style.outline = 'none';
+            
+            // Das Input-Feld in den Body hängen und fokussieren
+            document.body.appendChild(inputEl);
+            inputEl.focus();
+
+            // 3. Warten, bis der User "Enter" drückt oder woanders hinklickt (Blur)
+            const finishTextEntry = () => {
+                const finalValue = inputEl.value;
+                if (finalValue.trim() !== '') {
+                    // Text in unsere Node übertragen
+                    newTextNode.text = finalValue;
+                    newTextNode.isSelected = true;
+
+                    // API benachrichtigen (Dirty Check für Server-Speicherung)
+                    this.manager.emit('drawingCreated', {
+                        id: newTextNode.id,
+                        type: 'text',
+                        data: {
+                            point1: newTextNode.point1,
+                            text: finalValue
+                        }
+                    });
+                } else {
+                    // Wenn der Text leer war, löschen wir die Node einfach wieder
+                    this.manager.drawingManager.removeDrawing(newTextNode.id);
+                }
+
+                // Aufräumen: HTML-Element löschen & Modus zurücksetzen
+                if (inputEl.parentNode) {
+                    inputEl.parentNode.removeChild(inputEl);
+                }
+                this.mode = 'crosshair_and_pan';
+                (this.manager as any).requestRedraw();
+            };
+
+            // Event-Listener an das Input-Feld hängen
+            inputEl.addEventListener('blur', finishTextEntry);
+            inputEl.addEventListener('keydown', (ev) => {
+                if (ev.key === 'Enter') finishTextEntry();
+                if (ev.key === 'Escape') {
+                    inputEl.value = ''; // Bei Esc löschen wir den Text
+                    finishTextEntry();
+                }
+            });
+
+            this.drawStep = 0; // Wir bleiben bei 0, das HTML-Feld macht den Rest
+            return;
+        }
+    }
+
+    // ==========================================
     // DEFAULT: PANNING
     // ==========================================
     this.isDragging = true;
@@ -290,6 +361,20 @@ private onMouseMove = (e: MouseEvent) => {
 
     this.manager.setMousePos(x, y);
     const logicalCoords = this.getLogicalCoordinates(x, y);
+
+    // ==========================================
+    // NEU: CROSSHAIR EVENT FEUERN (Phase 12)
+    // ==========================================
+    if (logicalCoords) {
+        this.manager.emit('crosshairMove', {
+            x: x,                       // Pixel X für UI-Overlays
+            y: y,                       // Pixel Y für UI-Overlays
+            price: logicalCoords.price, // Der exakte Y-Preis
+            time: logicalCoords.time,   // Der Unix-Timestamp der X-Achse
+            index: logicalCoords.index, // Der Daten-Index
+            paneId: logicalCoords.paneId// In welcher Pane sich die Maus befindet
+        });
+    }
 
     // --- 1. LIVE PREVIEWS (Beim ersten Zeichnen) ---
     if (this.drawStep === 1 && this.activeDrawingNode && logicalCoords) {

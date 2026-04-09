@@ -68,7 +68,7 @@
 ### 9.3: Externer State & Synchronisation (Data Flow)
 - [x] Import/Export-Logik: Konverter schreiben, der ZChart-Nodes in dein Server-Format (JSON mit Timestamps) und zurück verwandelt.
 - [x] Der "Dirty"-Check: Mechanismus, der nach dem Verschieben eines Ankerpunkts das Update-Event an die Web-App feuert (onDrawingChanged).
-- [ ] KLineChart-Drop-In: Ersetzen der KLineChart-Instanz durch ZChart in der UI und Verknüpfung der Toolbar-Icons mit der ZChartAPI.
+- [ ] UI-Integration (React/Vue): ZChart als Komponente in die bestehende App integrieren und die Toolbar-Icons mit der `ZChartAPI` verknüpfen.
 
 ### 9.4: Fortgeschrittene Tools (Phase 9 Erweiterung)
 - [x] FiboNode: Implementierung des Fibonacci-Retracement-Tools (Geometrie & Auto-Labels).
@@ -82,6 +82,48 @@
 - [x] FAQ & Dokumentation: Erstellung der FAQ.md und ARCHITECTURE.md für dein Server-Team.
 
 # Phase 11: Advanced Visuals (The "Smiley" Phase)
-- [ ] Bounding Box System: Ein Rahmen für selektierte Objekte (Handles zum Skalieren an den Ecken).
-- [ ] Rotation-Logic: Mathematische Integration von Winkeln für Nodes (wie Emojis oder Text).
-- [ ] New Series Types: Implementierung von Hohlkerzen (Hollow Candles) und Area-Charts.
+- [x] Bounding Box System: Ein Rahmen für selektierte Objekte (Handles zum Skalieren an den Ecken).
+- [x] Rotation-Logic: Mathematische Integration von Winkeln für Nodes (wie Emojis oder Text).
+- [x] OhlcBarNode: Implementierung klassischer Balkencharts (OHLC Bars).
+- [x] AreaNode Refactoring: Den bestehenden Area-Chart an die saubere `SceneNode`-Struktur anpassen.
+
+# Phase 12: Die Externe API (ZChart Pro Vorbereitung)
+- [x] Crosshair-Events: Den `InputManager` so erweitern, dass er Maus-Koordinaten (Preis/Zeit) ausgibt, damit externe HTML-Overlays diese anzeigen können.
+- [x] Snapshot-Tool: Eine `zChart.snapshot()` Methode implementieren, die `canvas.toDataURL()` nutzt, um Bild-Exporte zu ermöglichen.
+- [x] Node-Rollen: Ein `role`-Tag für `SceneNode` einführen (`tool`, `axis`, `series`), um API-Befehle wie `zChart.clearAllDrawings()` sauber umzusetzen.
+- [x] Zoom-API: Bereitstellung von `zoomIn()`, `zoomOut()` und `resetChart()` direkt über die externe `ZChartAPI`.
+- [x] ZChartAPI EventEmitter: Integration eines leichten Event-Systems (z.B. on, off, emit) in die API, als sauberes Fundament für die Crosshair-Events und zukünftige Callbacks.
+ 
+# Phase 13: Core Extended Tools
+- [ ] TextNode: Implementierung eines Text-Werkzeugs (Text-Eingabe über ein unsichtbares HTML-Input-Feld, das nach dem Tippen als Node auf den Canvas gezeichnet wird).
+- [ ] Freehand/PenNode: Ein Stift-Werkzeug für freies Zeichnen (Speichert ein Array aus vielen $x/y$ Koordinaten und zieht einen durchgehenden ctx.lineTo Pfad).
+- [ ] Pointer-State: Den InputManager so anpassen, dass der Standard-Zeiger ein normaler Maus-Pfeil (default) ist und das Crosshair nur dann erscheint, wenn ein spezifisches Tool oder Modus gewählt ist.
+
+
+
+
+----------------------------------------------------
+
+ ROADMAP ZChart-Pro:
+
+ # Phase 1: Multi-Pane & Layout Engine (Die wichtigste Phase!)
+
+- [] Split-Screen-Manager: Die Fähigkeit, den Chart in Haupt-Chart (oben) und Indikator-Panes (unten) aufzuteilen.
+- [] Resizing (Splitter): Interaktive Trennlinien zwischen den Panes, die der User mit der Maus greifen kann, um z.B. den RSI größer oder kleiner zu ziehen (Höhen-Redistribution).
+- [] Pane-Controls: Kleine UI-Buttons (in Canvas oder HTML) zum Minimieren, Maximieren oder Schließen von Indikator-Fenstern.
+
+# Phase 2: Interaktive Achsen & Scaling (Das Profi-Gefühl)
+
+- [] Y-Axis Dragging: Wenn der User die Preisachse klickt und zieht, wird der Chart gestaucht oder gestreckt (autoScale wird temporär deaktiviert).
+- [] Logarithmische Skala: Ein Schalter, um die Preisachse von linear auf logarithmisch umzustellen (extrem wichtig für Krypto-Charts).
+- [] X-Axis Dragging: Feintuning für das Zusammenstauchen der Zeitachse durch Ziehen auf der Datum-Leiste.
+
+# Phase 3: Advanced Technical Indicators
+
+- [] Indikator-Bibliothek: Komplexe Berechnungen wie MACD, Bollinger Bänder oder Ichimoku-Wolken.
+- [] Multi-Series Rendering: Mehrere Datenserien übereinander legen (z.B. Bitcoin-Kurs und Ethereum-Kurs im selben Chart vergleichen).
+
+# Phase 4: Pro Drawing Tools
+
+- [] Volume Profile (Sichtbarer Bereich): Ein Histogramm, das nicht unten auf der X-Achse liegt, sondern an der Y-Achse (Preis) klebt und berechnet, bei welchem Preis das meiste Volumen gehandelt wurde.
+- [] Komplexe Geometrien: Pitchforks (Schiff), Gann Boxen und komplexe Fibonacci-Zeitzonen.
