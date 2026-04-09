@@ -7,6 +7,7 @@ import { DrawingManager } from '../core/DrawingManager';
 import { FiboNode } from '../nodes/tools/FiboNode';
 import { EmojiNode } from '../nodes/tools/EmojiNode';
 import { TextNode } from '../nodes/tools/TextNode';
+import { PenNode } from '../nodes/tools/PenNode';
 
 
 // --- Interfaces für das Koordinaten-Mapping ---
@@ -30,7 +31,7 @@ export interface IPane {
 }
 
 // --- NEU: Werkzeug-Modi ---
-export type InputMode = 'crosshair_and_pan' | 'draw_trendline' | 'draw_fibo' | 'draw_emoji' | 'draw_text';
+export type InputMode = 'crosshair_and_pan' | 'draw_trendline' | 'draw_fibo' | 'draw_emoji' | 'draw_text' | 'draw_pen'   ;
 
 
 /**
@@ -346,6 +347,20 @@ export class InputManager {
     }
 
     // ==========================================
+    // MODUS: ZEICHNEN (Neuer Stift)
+    // ==========================================
+    else if (this.mode === 'draw_pen') {
+        const newPen = new PenNode();
+        // Ersten Punkt hinzufügen
+        newPen.points.push({ index: logicalCoords.index, price: logicalCoords.price });
+        
+        this.manager.drawingManager.shapes.push(newPen);
+        this.activeDrawingNode = newPen;
+        this.isDragging = true; // Wir "ziehen" jetzt den Stift über das Papier
+        return;
+    }
+
+    // ==========================================
     // DEFAULT: PANNING
     // ==========================================
     this.isDragging = true;
@@ -427,6 +442,13 @@ private onMouseMove = (e: MouseEvent) => {
         this.activeDrawingNode[pointKey] = { index: logicalCoords.index, price: logicalCoords.price };
     }
 
+    // --- 3.5. FREEHAND DRAWING (Stift) ---
+    if (this.mode === 'draw_pen' && this.isDragging && this.activeDrawingNode && logicalCoords) {
+        // Neuen Punkt hinzufügen
+        this.activeDrawingNode.points.push({ index: logicalCoords.index, price: logicalCoords.price });
+        return; // WICHTIG: Damit wir nicht gleichzeitig pannen!
+    }
+
     // --- 4. PANNING (Verschieben des Charts) ---
     if (this.isDragging && !this.activeDrawingNode) { // Nur pannen, wenn kein Objekt bewegt wird
       const deltaX = e.clientX - this.startX;
@@ -455,6 +477,21 @@ private onMouseUp = () => {
                 point2: this.activeDrawingNode.point2
             }
         });
+    }
+
+    // Wenn wir einen Stift absetzen...
+    if (this.mode === 'draw_pen' && this.activeDrawingNode) {
+        this.activeDrawingNode.isSelected = true;
+        
+        // API benachrichtigen
+        this.manager.emit('drawingCreated', {
+            id: this.activeDrawingNode.id,
+            type: 'pen',
+            data: { points: this.activeDrawingNode.points }
+        });
+        
+        this.activeDrawingNode = null;
+        this.mode = 'crosshair_and_pan'; // Zurück zum Mauszeiger
     }
 
     this.isDragging = false;

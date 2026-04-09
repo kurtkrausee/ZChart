@@ -95,9 +95,9 @@
 - [x] ZChartAPI EventEmitter: Integration eines leichten Event-Systems (z.B. on, off, emit) in die API, als sauberes Fundament für die Crosshair-Events und zukünftige Callbacks.
  
 # Phase 13: Core Extended Tools
-- [ ] TextNode: Implementierung eines Text-Werkzeugs (Text-Eingabe über ein unsichtbares HTML-Input-Feld, das nach dem Tippen als Node auf den Canvas gezeichnet wird).
-- [ ] Freehand/PenNode: Ein Stift-Werkzeug für freies Zeichnen (Speichert ein Array aus vielen $x/y$ Koordinaten und zieht einen durchgehenden ctx.lineTo Pfad).
-- [ ] Pointer-State: Den InputManager so anpassen, dass der Standard-Zeiger ein normaler Maus-Pfeil (default) ist und das Crosshair nur dann erscheint, wenn ein spezifisches Tool oder Modus gewählt ist.
+- [x] TextNode: Implementierung eines Text-Werkzeugs (Text-Eingabe über ein unsichtbares HTML-Input-Feld, das nach dem Tippen als Node auf den Canvas gezeichnet wird).
+- [x] Freehand/PenNode: Ein Stift-Werkzeug für freies Zeichnen (Speichert ein Array aus vielen $x/y$ Koordinaten und zieht einen durchgehenden ctx.lineTo Pfad).
+- [x] Pointer-State: Den InputManager so anpassen, dass der Standard-Zeiger ein normaler Maus-Pfeil (default) ist und das Crosshair nur dann erscheint, wenn ein spezifisches Tool oder Modus gewählt ist.
 
 
 
