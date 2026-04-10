@@ -30,7 +30,7 @@ export class TimeScale {
   return { start, end };
  }
 
- /**
+  /**
    * Export: Wandelt einen Index in einen echten Zeitstempel um (für die Datenbank)
    */
   public indexToTime(index: number, dataArray: any[]): number | null {

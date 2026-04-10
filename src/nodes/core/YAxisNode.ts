@@ -2,7 +2,7 @@
 
 import type { ChartConfig } from '../../core/ChartOptions';
 import { PriceScale } from '../../math/PriceScale';
-import { formatKiloMega, formatPrice } from '../../utils/Formatters'; // Unsere neuen Helfer
+import { formatKiloMega, formatPrice } from '../../utils/Formatters'; 
 
 export class YAxisNode {
   public role = 'axis';
@@ -13,7 +13,7 @@ export class YAxisNode {
     width: number,
     yOffset: number,
     options: ChartConfig,
-    paneId: string // NEU: Wir brauchen die ID, um den richtigen Formatter zu wählen
+    paneId: string // Wir brauchen die ID, um den richtigen Formatter zu wählen
   ) {
     ctx.save();
     
@@ -42,7 +42,7 @@ export class YAxisNode {
     ctx.strokeStyle = options.colors.grid;
     ctx.lineWidth = options.grid.horizontalLines.lineWidth;
 
-    // NEU: Gestrichelte Linien für das Grid
+    // Gestrichelte Linien für das Grid
     ctx.setLineDash([3, 3]);
 
     // Wir zeichnen 5 Ticks pro Pane

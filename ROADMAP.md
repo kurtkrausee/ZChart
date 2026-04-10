@@ -102,9 +102,9 @@
 
 # Phase 14: Core Polish (TradingView Standards)
 - [x] Live-Data Injection: Implementierung einer Methode (`updateTick`), um einkommende WebSocket-Daten performant zu verarbeiten (letzte Kerze updaten oder neue anhängen), ohne das gesamte Array neu laden zu müssen.
-- [ ] Magnet Mode (Snapping): Erweiterung des `InputManager`, sodass Ankerpunkte von Zeichenwerkzeugen (Trendlinien etc.) automatisch an das exakte High, Low, Open oder Close der nächstgelegenen Kerze springen.
-- [ ] Watermark: Eine `WatermarkNode` (Rolle: `background`), die als Basis-Layer zentriert im Canvas gerendert wird (z.B. für den transparenten Text "BTC/USDT 1H" im Hintergrund).
-- [ ] OHLCV Legend: Eine `LegendNode` (oder Erweiterung des Crosshair-Events), die oben links im Chart die exakten Open, High, Low, Close und Volume-Werte der Kerze anzeigt, über der das Fadenkreuz gerade schwebt.
+- [x] Magnet Mode (Snapping): Erweiterung des `InputManager`, sodass Ankerpunkte von Zeichenwerkzeugen (Trendlinien etc.) automatisch an das exakte High, Low, Open oder Close der nächstgelegenen Kerze springen.
+- [x] Watermark: Eine `WatermarkNode` (Rolle: `background`), die als Basis-Layer zentriert im Canvas gerendert wird (z.B. für den transparenten Text "BTC/USDT 1H" im Hintergrund).
+- [x] OHLCV Legend: Eine `LegendNode` (oder Erweiterung des Crosshair-Events), die oben links im Chart die exakten Open, High, Low, Close und Volume-Werte der Kerze anzeigt, über der das Fadenkreuz gerade schwebt.
 
 
 

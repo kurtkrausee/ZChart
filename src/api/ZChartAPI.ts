@@ -1,14 +1,20 @@
 // src/api/ZChartAPI.ts
 import { ChartManager } from '../core/ChartManager';
 import { TrendLineNode } from '../nodes/tools/TrendLineNode';
+import { FiboNode } from '../nodes/tools/FiboNode';
+import { ImageNode } from '../nodes/tools/ImageNode';
+import { TextNode } from '../nodes/tools/TextNode';
+import { PenNode } from '../nodes/tools/PenNode';
+import { EmojiNode } from '../nodes/tools/EmojiNode';
 
-// --- NEU: Typ für das Event-System ---
+
+// --- Typ für das Event-System ---
 export type ZChartEventCallback = (data: any) => void;
 
 export class ZChartAPI {
     private manager: ChartManager;
     
-    // --- NEU: Speicher für die Event-Listener ---
+    // --- Speicher für die Event-Listener ---
     private listeners: Record<string, ZChartEventCallback[]> = {};
 
     constructor(manager: ChartManager) {
@@ -16,7 +22,7 @@ export class ZChartAPI {
     }
 
     // ==========================================
-    // NEU: ZChartAPI EventEmitter (Phase 12)
+    // ZChartAPI EventEmitter
     // ==========================================
     public on(event: string, callback: ZChartEventCallback): void {
         if (!this.listeners[event]) this.listeners[event] = [];
@@ -36,14 +42,13 @@ export class ZChartAPI {
 
     /**
      * Ermöglicht der Web-App, auf Ereignisse zu hören.
-     * (Angepasst: Nutzt jetzt intern das neue Event-System)
      */
     public subscribe(event: string, callback: (data: any) => void) {
         this.on(event, callback);
     }
 
     // ==========================================
-    // NEU: Smart Clear (Nutzt Node-Rollen)
+    // Smart Clear (Nutzt Node-Rollen)
     // ==========================================
     /**
      * Löscht alle Nutzer-Zeichnungen, ignoriert aber Achsen und Kerzen
@@ -58,10 +63,6 @@ export class ZChartAPI {
             this.manager.drawingManager.removeDrawing(tool.id);
         });
     }
-
-    // ==========================================
-    // DEIN ORIGINAL CODE (Unverändert)
-    // ==========================================
 
     /**
      * Steuert das aktive Werkzeug (z.B. von der Toolbar aufgerufen)
@@ -122,7 +123,6 @@ export class ZChartAPI {
         if (index !== -1) {
             const [shape] = shapes.splice(index, 1);
             shapes.unshift(shape); // Ganz an den Anfang des Arrays
-            // FORCE RENDER: Damit man es sofort sieht
             (this.manager as any).render(); 
         }
     }
@@ -131,29 +131,96 @@ export class ZChartAPI {
      * IMPORT: Wandelt das Server-JSON (Timestamps) in ZChart-Nodes (Indizes) um.
      */
     public importDrawings(serverDrawings: any[]) {
-        // Wir holen uns alle Kerzen, damit die TimeScale die Zeitstempel abgleichen kann
         const dataArray = this.manager.dataStore.getAllData();
 
+        // Hilfsfunktion: Konvertiert einen Server-Timestamp sauber in einen Chart-Index
+        const getLogicalPoint = (anchor: any) => {
+            if (!anchor) return null;
+            const idx = this.manager.timeScale.timeToIndex(anchor.timestamp, dataArray);
+            return { index: idx, price: anchor.price };
+        };
+
         serverDrawings.forEach(ext => {
-            // Aktuell unterstützen wir in ZChart 'segment' (Trendlinie)
-            if (ext.type === 'segment') {
-                const newNode = new TrendLineNode();
+            let newNode: any = null;
+
+            switch (ext.type) {
+                case 'segment': // Trendlinie
+                    newNode = new TrendLineNode();
+                    newNode.point1 = getLogicalPoint(ext.anchors?.[0]);
+                    newNode.point2 = getLogicalPoint(ext.anchors?.[1]);
+                    if (ext.style) {
+                        newNode.color = ext.style.color || newNode.color;
+                        newNode.lineWidth = ext.style.lineWidth || newNode.lineWidth;
+                    }
+                    break;
+
+                case 'fibRetracement': // Fibonacci
+                    newNode = new FiboNode();
+                    newNode.point1 = getLogicalPoint(ext.anchors?.[0]);
+                    newNode.point2 = getLogicalPoint(ext.anchors?.[1]);
+                    break;
+
+                case 'emoji': // Emojis
+                    newNode = new EmojiNode();
+                    newNode.point1 = getLogicalPoint(ext.anchors?.[0]);
+                    if (ext.data) {
+                        newNode.emoji = ext.data.emoji || '🔥';
+                        newNode.size = ext.data.size || 40;
+                        newNode.rotation = ext.data.rotation || 0;
+                        newNode.scaleX = ext.data.scaleX || 1;
+                    }
+                    break;
+
+                case 'text': // Texteingaben
+                    newNode = new TextNode();
+                    newNode.point1 = getLogicalPoint(ext.anchors?.[0]);
+                    if (ext.data) newNode.text = ext.data.text || 'Text';
+                    if (ext.style) {
+                        newNode.color = ext.style.color || newNode.color;
+                        newNode.fontSize = ext.style.fontSize || newNode.fontSize;
+                    }
+                    break;
+
+                case 'pen': // Freihand-Stift
+                    newNode = new PenNode();
+                    if (ext.data && ext.data.points) {
+                        // Der Stift hat ein Array von Punkten, keine klassischen 2 Anker
+                        newNode.points = ext.data.points.map((p: any) => getLogicalPoint(p));
+                    }
+                    if (ext.style) {
+                        newNode.color = ext.style.color || newNode.color;
+                        newNode.lineWidth = ext.style.lineWidth || newNode.lineWidth;
+                    }
+                    break;
+                    
+                case 'image': // Bilder (Asynchroner Load)
+                    if (ext.data && ext.data.src) {
+                        const imgNode = new ImageNode();
+                        imgNode.id = ext.id;
+                        imgNode.point1 = getLogicalPoint(ext.anchors?.[0]);
+                        imgNode.width = ext.data.width || 100;
+                        imgNode.height = ext.data.height || 100;
+                        imgNode.isVisible = ext.visible ?? true;
+                        
+                        // Das Bild muss aus der URL geladen werden
+                        const htmlImg = new Image();
+                        htmlImg.onload = () => {
+                            imgNode.image = htmlImg;
+                            this.manager.requestRedraw();
+                        };
+                        htmlImg.src = ext.data.src;
+                        
+                        this.manager.drawingManager.shapes.push(imgNode);
+                    }
+                    return; // Wir überspringen den Standard-Push unten für Bilder, da sie hier schon gepusht werden
+            }
+
+            // Wenn ein Node erkannt und gebaut wurde, weisen wir die Basis-Eigenschaften zu
+            if (newNode) {
                 newNode.id = ext.id;
-                
-                // Konvertierung: Timestamp -> ZChart Index
-                const idx1 = this.manager.timeScale.timeToIndex(ext.anchors[0].timestamp, dataArray);
-                const idx2 = this.manager.timeScale.timeToIndex(ext.anchors[1].timestamp, dataArray);
-
-                newNode.point1 = { index: idx1, price: ext.anchors[0].price };
-                newNode.point2 = { index: idx2, price: ext.anchors[1].price };
-                
                 newNode.isVisible = ext.visible ?? true;
-
-                // Später können wir hier auch die Styles (Farbe/Dicke) aus ext.style übernehmen!
-
                 this.manager.drawingManager.shapes.push(newNode);
             }
-            // HIER kommen später 'fibRetracement' und 'emoji' rein!
         });
 
         this.manager.render(); // Chart neu zeichnen
@@ -166,30 +233,41 @@ export class ZChartAPI {
         const dataArray = this.manager.dataStore.getAllData();
 
         return this.manager.drawingManager.shapes.map((shape, arrayIndex) => {
-            // HIER IST DER TRICK: Wir behandeln shape kurz als 'any'
-            const s = shape as any; 
-
-            // Konvertierung: ZChart Index -> Timestamp
-            const t1 = this.manager.timeScale.indexToTime(s.point1?.index, dataArray) || Date.now();
-            const t2 = this.manager.timeScale.indexToTime(s.point2?.index, dataArray) || Date.now();
-
-            return {
-                id: s.id,
-                type: 'segment', // Weil wir aktuell nur TrendLineNode haben
-                anchors: [
-                    { timestamp: t1, price: s.point1?.price },
-                    { timestamp: t2, price: s.point2?.price }
-                ],
-                style: {
-                    color: '#2962ff', // Aktueller Standardwert der Linie
-                    lineWidth: 2,
-                    lineStyle: 'solid'
-                },
-                locked: false,
-                visible: shape.isVisible,
-                zIndex: arrayIndex // Die Array-Position ist unser Z-Index!
+            // Hilfsfunktion: Wandelt den Index sicher in einen Timestamp um
+            const getT = (idx: number | undefined) => {
+                if (idx === undefined || idx === null) return Date.now();
+                return this.manager.timeScale.indexToTime(idx, dataArray) || Date.now();
             };
-        });
+
+            // Basis-Eigenschaften, die jedes Objekt hat
+            const baseExport = {
+                id: shape.id,
+                visible: shape.isVisible,
+                zIndex: arrayIndex
+            };
+
+            // Typsichere Prüfung mit 'instanceof'
+            if (shape instanceof TrendLineNode) {
+                return { ...baseExport, type: 'segment', anchors: [{ timestamp: getT(shape.point1?.index), price: shape.point1?.price }, { timestamp: getT(shape.point2?.index), price: shape.point2?.price }], style: { color: shape.color, lineWidth: shape.lineWidth } };
+            }
+            if (shape instanceof FiboNode) {
+                return { ...baseExport, type: 'fibRetracement', anchors: [{ timestamp: getT(shape.point1?.index), price: shape.point1?.price }, { timestamp: getT(shape.point2?.index), price: shape.point2?.price }] };
+            }
+            if (shape instanceof EmojiNode) {
+                return { ...baseExport, type: 'emoji', anchors: [{ timestamp: getT(shape.point1?.index), price: shape.point1?.price }], data: { emoji: shape.emoji, size: shape.size, rotation: shape.rotation, scaleX: shape.scaleX } };
+            }
+            if (shape instanceof TextNode) {
+                return { ...baseExport, type: 'text', anchors: [{ timestamp: getT(shape.point1?.index), price: shape.point1?.price }], data: { text: shape.text }, style: { color: shape.color, fontSize: shape.fontSize } };
+            }
+            if (shape instanceof PenNode) {
+                return { ...baseExport, type: 'pen', data: { points: shape.points?.map((p: any) => ({ timestamp: getT(p.index), price: p.price })) || [] }, style: { color: shape.color, lineWidth: shape.lineWidth } };
+            }
+            if (shape instanceof ImageNode) {
+                return { ...baseExport, type: 'image', anchors: [{ timestamp: getT(shape.point1?.index), price: shape.point1?.price }], data: { src: shape.image?.src, width: shape.width, height: shape.height } };
+            }
+
+            return null; // Unbekannte Tools überspringen
+        }).filter(item => item !== null); // Leere Einträge entfernen
     }
 
     public setTheme(theme: 'light' | 'dark'): void {
@@ -215,6 +293,29 @@ export class ZChartAPI {
         if (this.manager.watermarkNode) {
             this.manager.watermarkNode.text = text;
             this.manager.render(); // Chart sofort neu zeichnen
+        }
+     }
+
+     // ==========================================
+    // CORE CONTROLLER
+    // ==========================================
+
+    /**
+     * Schaltet den Magnet-Modus ein oder aus (Snapping an Kerzen).
+     */
+    public setMagnetMode(isActive: boolean) {
+        if (this.manager.inputManager) {
+            this.manager.inputManager.isMagnetMode = isActive;
+        }
+    }
+
+    /**
+     * Verarbeitet einen einkommenden Live-Tick über WebSocket.
+     */
+    public updateTick(tick: any) { // Importiere hier gerne 'CandleData'
+        // Leitet den Tick direkt an die Manager-Methode weiter, die wir vorhin gebaut haben
+        if (typeof (this.manager as any).updateTick === 'function') {
+             (this.manager as any).updateTick(tick);
         }
     }
 }

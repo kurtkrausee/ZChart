@@ -7,7 +7,7 @@ import type { ChartConfig } from '../../core/ChartOptions';
 
 export class LineSeriesNode extends SceneNode {
   public role = 'series';
-  // Explizit deklarieren
+  
   private dataStore: any;
   private dataKey: string;
   private color: string;
@@ -20,7 +20,7 @@ export class LineSeriesNode extends SceneNode {
     lineWidth: number = 2
   ) {
     super();
-    // Manuell zuweisen
+  
     this.dataStore = dataStore;
     this.dataKey = dataKey;
     this.color = color;

@@ -27,13 +27,13 @@ export class ChartManager {
   // Mathematik, Daten & Engines
   public timeScale: TimeScale = new TimeScale();
   public dataStore: DataStore = new DataStore();
-  private autoScaleEngine = new AutoScaleEngine(); // NEU
+  private autoScaleEngine = new AutoScaleEngine(); 
 
   // Globale Nodes
   private yAxisNode: YAxisNode = new YAxisNode();
   private xAxisNode: XAxisNode = new XAxisNode(); 
   private crosshairNode: CrosshairNode = new CrosshairNode();
-  private gridNode: GridNode = new GridNode();     // NEU
+  private gridNode: GridNode = new GridNode();   
 
   // Interaktion
   public inputManager!: InputManager; //private -> public
@@ -42,7 +42,7 @@ export class ChartManager {
   public drawingManager: DrawingManager = new DrawingManager();
   public watermarkNode: WatermarkNode = new WatermarkNode();
   
-  // NEU: Speicher für Callbacks (die Brücke/API wird sich hier registrieren)
+  // Speicher für Callbacks (die Brücke/API wird sich hier registrieren)
   private eventListeners: Map<string, Array<(data: any) => void>> = new Map();
 
   constructor(containerOrId: string | HTMLElement, userOptions?: DeepPartial<ChartConfig>) {
@@ -128,7 +128,7 @@ export class ChartManager {
   }
 
   // ==========================================
-  // NEU: CORE API BEFEHLE (Phase 12)
+  // CORE API BEFEHLE
   // ==========================================
 
   /**
@@ -267,12 +267,12 @@ export class ChartManager {
 
       pane.draw(this.ctx, this.timeScale, this.options);
 
-      // NEU: Watermark im Hintergrund der Main-Pane zeichnen
+      // Watermark im Hintergrund der Main-Pane zeichnen
       if (pane.id === 'main') {
           this.watermarkNode.draw(this.ctx, this.timeScale, pane.priceScale, this.options);
       }
 
-      // NEU: Den DrawingManager alle Shapes zeichnen lassen
+      // Den DrawingManager alle Shapes zeichnen lassen
       if (pane.id === 'main') {
         // LÖSCHEN: this.testLine.draw(...)
         this.drawingManager.draw(this.ctx, this.timeScale, pane.priceScale, this.options);
@@ -286,7 +286,7 @@ export class ChartManager {
     });
 
     // 5. X-Achse & Crosshair
-    this.xAxisNode.draw(this.ctx, chartContentWidth, height, this.timeScale, this.options);
+    this.xAxisNode.draw(this.ctx, chartContentWidth, height, this.timeScale, this.options, this.dataStore.getAllData());
 
     // Crosshair NUR zeichnen, wenn wir im Pan-Modus sind ODER wenn ein Zeichenwerkzeug aktiv ist, 
     // ABER NICHT, wenn wir gerade ein Objekt verschieben (isDraggingPoint)
