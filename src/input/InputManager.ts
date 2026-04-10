@@ -8,6 +8,8 @@ import { FiboNode } from '../nodes/tools/FiboNode';
 import { EmojiNode } from '../nodes/tools/EmojiNode';
 import { TextNode } from '../nodes/tools/TextNode';
 import { PenNode } from '../nodes/tools/PenNode';
+import { ImageNode } from '../nodes/tools/ImageNode';
+
 
 
 // --- Interfaces für das Koordinaten-Mapping ---
@@ -58,8 +60,13 @@ export class InputManager {
   // --- NEU: Aktueller Modus ---
   public mode: InputMode = 'crosshair_and_pan';
 
+  // Magnet Mode aktivieren
+  public isMagnetMode: boolean = true; 
+
   // Status-Variablen für das Panning (X-Achse schieben)
   private isDragging: boolean = false;
+  private lastMouseX: number = 0;
+  private lastMouseY: number = 0;
   private startX: number = 0;
   private startScrollOffset: number = 0;
 
@@ -93,9 +100,91 @@ export class InputManager {
 
     // Wenn die Maus das Canvas verlässt, setzen wir das Fadenkreuz im Manager auf null
     this.canvas.addEventListener('mouseleave', () => this.manager.setMousePos(null, null));
-  }
+    window.addEventListener('paste', this.onPaste);  
+}
 
-  // --- NEU (Phase 8): Die zentrale Mapping-Funktion ---
+// ==========================================
+  // COPY & PASTE
+  // ==========================================
+  private onPaste = (e: ClipboardEvent) => {
+    if (!e.clipboardData) return;
+
+    // Wir holen uns die Position, an der die Maus gerade schwebt
+    const logicalCoords = this.getLogicalCoordinates(this.lastMouseX, this.lastMouseY);
+    if (!logicalCoords || logicalCoords.paneId !== 'main') return;
+
+    // 1. Zuerst auf Bilder prüfen (z.B. Screenshots)
+    const items = e.clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+            const file = items[i].getAsFile();
+            if (!file) continue;
+
+            // Das Bild aus der Zwischenablage in ein HTML-Image umwandeln
+            const imgURL = URL.createObjectURL(file);
+            const htmlImage = new Image();
+            
+            htmlImage.onload = () => {
+                const newImageNode = new ImageNode();
+                newImageNode.image = htmlImage;
+
+                // Smart Scaling: Wenn das Bild riesig ist, stauchen wir es auf max. 300px
+                const maxDim = 300;
+                let w = htmlImage.width;
+                let h = htmlImage.height;
+                if (w > maxDim || h > maxDim) {
+                    const ratio = Math.min(maxDim / w, maxDim / h);
+                    w *= ratio;
+                    h *= ratio;
+                }
+                newImageNode.width = w;
+                newImageNode.height = h;
+
+                // Bild an der Maus-Position ablegen
+                newImageNode.point1 = { index: logicalCoords.index, price: logicalCoords.price };
+                newImageNode.isSelected = true;
+
+                this.manager.drawingManager.shapes.push(newImageNode);
+                
+                // Event für die API feuern
+                this.manager.emit('drawingCreated', {
+                    id: newImageNode.id,
+                    type: 'image',
+                    data: { point1: newImageNode.point1, width: w, height: h }
+                });
+
+                // Chart zwingen, sich neu zu zeichnen (da das Bild asynchron geladen wird)
+                (this.manager as any).requestRedraw();
+            };
+            
+            htmlImage.src = imgURL;
+            e.preventDefault(); // Browser Standard-Aktion verhindern
+            return; // Wir sind fertig, keine Texte mehr prüfen
+        }
+    }
+
+    // 2. Wenn kein Bild da war, prüfen wir auf Text
+    const textData = e.clipboardData.getData('text');
+    if (textData) {
+        const newTextNode = new TextNode();
+        newTextNode.text = textData;
+        newTextNode.point1 = { index: logicalCoords.index, price: logicalCoords.price };
+        newTextNode.isSelected = true;
+
+        this.manager.drawingManager.shapes.push(newTextNode);
+
+        this.manager.emit('drawingCreated', {
+            id: newTextNode.id,
+            type: 'text',
+            data: { point1: newTextNode.point1, text: textData }
+        });
+
+        (this.manager as any).requestRedraw();
+        e.preventDefault();
+    }
+  };
+
+  // --- Die zentrale Mapping-Funktion ---
   public getLogicalCoordinates(pixelX: number, pixelY: number): LogicalCoordinates | null {
     // 1. Zuständige Pane über den Manager ermitteln
     const targetPane = this.manager.getPaneAt(pixelY);
@@ -114,11 +203,42 @@ export class InputManager {
     // 3. Preis über die spezifische PriceScale der getroffenen Pane ermitteln
     const paneTopOffset = targetPane.getTopOffset();
     const relativeY = pixelY - paneTopOffset; 
-    const price = targetPane.getPriceScale().yToPrice(relativeY);
+    
+    // let, damit Mangnet-Mode den Preis noch anpassen kann
+    let price =targetPane.getPriceScale().yToPrice(relativeY);
+    let finalY = pixelY; 
+
+    // ==========================================
+    // MAGNET MODE (Snapping)
+    // ==========================================
+    // Wenn Magnet an ist, wir im Main-Chart sind und aktiv zeichnen oder Punkte verschieben:
+    const isDrawingOrDragging = this.mode.startsWith('draw_') || this.isDraggingPoint;
+    
+    if (this.isMagnetMode && targetPane.getId() === 'main' && isDrawingOrDragging) {
+        const candle = dataArray[index];
+        if (candle) {
+            // Wir prüfen den Abstand zu OHLC
+            const prices = [candle.open, candle.high, candle.low, candle.close];
+            let closestDist = Infinity;
+
+            for (const p of prices) {
+                const yPos = targetPane.getPriceScale().priceToY(p) + paneTopOffset;
+                const dist = Math.abs(pixelY - yPos);
+                
+                // Magnet-Radius: 20 Pixel
+                if (dist < 20 && dist < closestDist) {
+                    closestDist = dist;
+                    price = p;       // Wir snappen den echten Preis!
+                    finalY = yPos;   // Wir snappen die Y-Koordinate!
+                }
+            }
+        }
+    }
+    // ==========================================
 
     return {
       x: pixelX,
-      y: pixelY,
+      y: finalY,
       paneId: targetPane.getId(),
       time,
       index,
@@ -373,6 +493,8 @@ private onMouseMove = (e: MouseEvent) => {
     const rect = this.canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
+    this.lastMouseX = x;
+    this.lastMouseY = y;
 
     this.manager.setMousePos(x, y);
     const logicalCoords = this.getLogicalCoordinates(x, y);
@@ -381,13 +503,17 @@ private onMouseMove = (e: MouseEvent) => {
     // NEU: CROSSHAIR EVENT FEUERN (Phase 12)
     // ==========================================
     if (logicalCoords) {
+        const dataArray = this.manager.dataStore.getAllData();
+        const hoveredCandle = dataArray[logicalCoords.index] || null;
+
         this.manager.emit('crosshairMove', {
             x: x,                       // Pixel X für UI-Overlays
             y: y,                       // Pixel Y für UI-Overlays
             price: logicalCoords.price, // Der exakte Y-Preis
             time: logicalCoords.time,   // Der Unix-Timestamp der X-Achse
             index: logicalCoords.index, // Der Daten-Index
-            paneId: logicalCoords.paneId// In welcher Pane sich die Maus befindet
+            paneId: logicalCoords.paneId, // In welcher Pane sich die Maus befindet
+            candle: hoveredCandle // Anzeige OHLCV Daten  
         });
     }
 
@@ -401,18 +527,24 @@ private onMouseMove = (e: MouseEvent) => {
 
     // --- 2. ADVANCED NODE INTERACTION (Rotation / Spiegeln) ---
     // Wenn wir ein Emoji selektiert haben und gerade ziehen
-    if (this.isDragging && this.activeDrawingNode instanceof EmojiNode && this.activeDrawingNode.point1) {
+    if (this.isDragging && this.activeDrawingNode && this.activeDrawingNode.point1 && logicalCoords) {
         
+        // Fall A: Text und Bilder wollen wir einfach nur VERSCHIEBEN
+        if (this.activeDrawingNode instanceof TextNode || this.activeDrawingNode instanceof ImageNode) {
+            this.activeDrawingNode.point1 = { index: logicalCoords.index, price: logicalCoords.price };
+            return; // Wichtig: Panning stoppen
+        }
+
+        // Fall B: Emojis wollen wir ROTIEREN und SKALIEREN (Dein bestehender Code)
+        if (this.activeDrawingNode instanceof EmojiNode) {
         // Zuerst die aktuelle Pane und deren PriceScale holen
-        const targetPane = this.manager.getPaneAt(y);
-        const priceScale = targetPane?.getPriceScale() as any;
-        
+            const targetPane = this.manager.getPaneAt(y);
+            const priceScale = targetPane?.getPriceScale() as any;
+                
         // Wenn keine Preisskala gefunden wurde, können wir nicht rechnen
         if (!priceScale) return;
 
         const centerX = this.timeScale.indexToX(this.activeDrawingNode.point1.index);
-        
-        // Nutze nun die priceScale der Pane statt die des Managers:
         const centerY = priceScale.priceToY(this.activeDrawingNode.point1.price);
 
         // Delta zwischen Maus und Zentrum
@@ -434,7 +566,9 @@ private onMouseMove = (e: MouseEvent) => {
         if (distance > 10) { // Mindestgröße zum Schutz
             this.activeDrawingNode.size = distance * 1.2;
         }
+        return;
     }
+}
 
     // --- 3. POINT DRAGGING (Bestehende Logik für Ankerpunkte) ---
     if (this.isDraggingPoint && this.activeDrawingNode && this.draggedPointIndex && logicalCoords) {

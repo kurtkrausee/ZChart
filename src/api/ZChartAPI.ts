@@ -166,17 +166,19 @@ export class ZChartAPI {
         const dataArray = this.manager.dataStore.getAllData();
 
         return this.manager.drawingManager.shapes.map((shape, arrayIndex) => {
+            // HIER IST DER TRICK: Wir behandeln shape kurz als 'any'
+            const s = shape as any; 
+
             // Konvertierung: ZChart Index -> Timestamp
-            // Fallback auf Date.now(), falls der Index ins Leere läuft
-            const t1 = this.manager.timeScale.indexToTime(shape.point1!.index, dataArray) || Date.now();
-            const t2 = this.manager.timeScale.indexToTime(shape.point2!.index, dataArray) || Date.now();
+            const t1 = this.manager.timeScale.indexToTime(s.point1?.index, dataArray) || Date.now();
+            const t2 = this.manager.timeScale.indexToTime(s.point2?.index, dataArray) || Date.now();
 
             return {
-                id: shape.id,
+                id: s.id,
                 type: 'segment', // Weil wir aktuell nur TrendLineNode haben
                 anchors: [
-                    { timestamp: t1, price: shape.point1!.price },
-                    { timestamp: t2, price: shape.point2!.price }
+                    { timestamp: t1, price: s.point1?.price },
+                    { timestamp: t2, price: s.point2?.price }
                 ],
                 style: {
                     color: '#2962ff', // Aktueller Standardwert der Linie
@@ -203,5 +205,16 @@ export class ZChartAPI {
             this.manager.options.colors.grid = '#2a2e39';
         }
         this.manager.render();
+    }
+    
+    /**
+     * Setzt das Hintergrund-Wasserzeichen (z.B. "BTC/USDT 1H").
+     * Leerer String ("") blendet das Wasserzeichen aus.
+     */
+    public setWatermark(text: string) {
+        if (this.manager.watermarkNode) {
+            this.manager.watermarkNode.text = text;
+            this.manager.render(); // Chart sofort neu zeichnen
+        }
     }
 }

@@ -29,6 +29,36 @@ export class DataStore {
     return this.data.slice(start, end + 1);
   }
 
+  /**
+   * Verarbeitet einen einkommenden Live-Tick über WebSocket.
+   * Aktualisiert die letzte Kerze oder fügt eine neue hinzu.
+   */
+  public updateTick(tick: CandleData) {
+    if (this.data.length === 0) {
+        this.data.push(tick);
+        return;
+    }
+
+    const lastCandle = this.data[this.data.length - 1];
+
+    // Wenn der Tick den gleichen Zeitstempel hat wie unsere letzte Kerze,
+    // updaten wir einfach die Werte (High/Low ausweiten, Close anpassen).
+    if (tick.timestamp === lastCandle.timestamp) {
+        lastCandle.close = tick.close;
+        lastCandle.high = Math.max(lastCandle.high, tick.high);
+        lastCandle.low = Math.min(lastCandle.low, tick.low);
+        
+        // Hinweis: Je nachdem, ob dein Server "kumuliertes Volumen" 
+        // oder "Tick-Volumen" schickt, wird das hier überschrieben oder addiert (+).
+        // Standardmäßig überschreiben wir es mit dem neuesten Wert vom Server:
+        lastCandle.volume = tick.volume; 
+    } 
+    // Wenn die Zeit des Ticks größer ist, ist eine neue Kerze angebrochen!
+    else if (tick.timestamp > lastCandle.timestamp) {
+        this.data.push(tick);
+    }
+  }
+
   private loadRealData() {
     this.data = sampleData as CandleData[];
   }

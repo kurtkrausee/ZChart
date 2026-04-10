@@ -1,25 +1,26 @@
 {
   "compilerOptions": {
+    /* --- Basis-Umgebung --- */
     "target": "es2023",
     "module": "esnext",
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "types": ["vite/client"],
     "skipLibCheck": true,
 
-    /* Modus für Library-Kompatibilität */
-    "moduleResolution": "node",          // Geändert von 'bundler' zu 'node' für bessere Erkennung
-    "moduleDetection": "force",
-    "esModuleInterop": true,             // Wichtig für den Import in React/Vite
+    /* --- Modul-Auflösung (Wichtig für Vite & React) --- */
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "resolveJsonModule": true,        /* <--- FIX: Erlaubt den Import deiner .json Datei! */
     
-    /* FIXES FÜR LIBRARY BUILD */
-    "allowImportingTsExtensions": false,
-    "noEmit": false,
-    "declaration": true,
-    "declarationMap": true,
+    /* --- Library Build Einstellungen (Der "dist" Ordner) --- */
     "rootDir": "src",
     "outDir": "dist",
+    "declaration": true,              /* Generiert .d.ts Dateien (Wichtig für Autocomplete in ZChart Pro) */
+    "declarationMap": true,
+    "noEmit": false,                  /* Muss false sein, damit der dist-Ordner befüllt wird */
+    "allowImportingTsExtensions": false,
 
-    /* Typen-Sicherheit */
+    /* --- Typen-Sicherheit --- */
     "strict": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,

@@ -9,9 +9,10 @@ import { XAxisNode } from '../nodes/core/XAxisNode';
 import { DataStore } from '../data/DataStore';
 import { InputManager } from '../input/InputManager';
 import { CrosshairNode } from '../nodes/core/CrosshairNode';
-import { GridNode } from '../nodes/core/GridNode';                  // NEU
-import { AutoScaleEngine } from '../math/AutoScaleEngine';      // NEU
+import { GridNode } from '../nodes/core/GridNode';            
+import { AutoScaleEngine } from '../math/AutoScaleEngine';     
 import { DrawingManager } from './DrawingManager';
+import { WatermarkNode } from '../nodes/core/WatermarkNode';
 
 export class ChartManager {
   private canvas: HTMLCanvasElement;
@@ -39,7 +40,8 @@ export class ChartManager {
   private mousePos: { x: number, y: number } | null = null;
 
   public drawingManager: DrawingManager = new DrawingManager();
-
+  public watermarkNode: WatermarkNode = new WatermarkNode();
+  
   // NEU: Speicher für Callbacks (die Brücke/API wird sich hier registrieren)
   private eventListeners: Map<string, Array<(data: any) => void>> = new Map();
 
@@ -146,6 +148,25 @@ export class ChartManager {
   }
 
   /**
+   * Live-Update API: Wird von außen aufgerufen, wenn ein neuer Tick (Trade) reinkommt.
+   */
+  public updateTick(tick: any) { // "any" oder importiere "CandleData"
+      this.dataStore.updateTick(tick);
+      
+      // Auto-Scroll: Wenn wir ganz rechts im Chart sind, scrollen wir automatisch mit!
+      // (Verhindert, dass der Kurs aus dem Bildschirm läuft, wenn neue Kerzen entstehen)
+      const dataLength = this.dataStore.getAllData().length;
+      const visibleRange = this.timeScale.getVisibleRange(dataLength);
+      
+      if (visibleRange.end >= dataLength - 2) { // Toleranz von 1-2 Kerzen
+         this.timeScale.scrollOffset -= this.timeScale.candleWidth; 
+      }
+      
+      // (Da dein startRenderLoop ohnehin 60x pro Sekunde läuft, wird die neue Kerze 
+      // sofort beim nächsten Frame gezeichnet. Wir müssen hier kein explizites render() rufen.)
+  }
+
+  /**
    * Wird von der API aufgerufen, wenn z.B. das Theme wechselt.
    * Da dein ChartManager ohnehin in einem durchgehenden Loop 
    * (startRenderLoop) läuft, brauchen wir hier aktuell nichts tun.
@@ -245,6 +266,11 @@ export class ChartManager {
       this.ctx.translate(0, currentY);
 
       pane.draw(this.ctx, this.timeScale, this.options);
+
+      // NEU: Watermark im Hintergrund der Main-Pane zeichnen
+      if (pane.id === 'main') {
+          this.watermarkNode.draw(this.ctx, this.timeScale, pane.priceScale, this.options);
+      }
 
       // NEU: Den DrawingManager alle Shapes zeichnen lassen
       if (pane.id === 'main') {

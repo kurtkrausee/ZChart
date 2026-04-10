@@ -98,6 +98,14 @@
 - [x] TextNode: Implementierung eines Text-Werkzeugs (Text-Eingabe über ein unsichtbares HTML-Input-Feld, das nach dem Tippen als Node auf den Canvas gezeichnet wird).
 - [x] Freehand/PenNode: Ein Stift-Werkzeug für freies Zeichnen (Speichert ein Array aus vielen $x/y$ Koordinaten und zieht einen durchgehenden ctx.lineTo Pfad).
 - [x] Pointer-State: Den InputManager so anpassen, dass der Standard-Zeiger ein normaler Maus-Pfeil (default) ist und das Crosshair nur dann erscheint, wenn ein spezifisches Tool oder Modus gewählt ist.
+- [x] ImageNode für Copy/Paste von Elementen aus der Zwischenablage jeglicher Art
+
+# Phase 14: Core Polish (TradingView Standards)
+- [x] Live-Data Injection: Implementierung einer Methode (`updateTick`), um einkommende WebSocket-Daten performant zu verarbeiten (letzte Kerze updaten oder neue anhängen), ohne das gesamte Array neu laden zu müssen.
+- [ ] Magnet Mode (Snapping): Erweiterung des `InputManager`, sodass Ankerpunkte von Zeichenwerkzeugen (Trendlinien etc.) automatisch an das exakte High, Low, Open oder Close der nächstgelegenen Kerze springen.
+- [ ] Watermark: Eine `WatermarkNode` (Rolle: `background`), die als Basis-Layer zentriert im Canvas gerendert wird (z.B. für den transparenten Text "BTC/USDT 1H" im Hintergrund).
+- [ ] OHLCV Legend: Eine `LegendNode` (oder Erweiterung des Crosshair-Events), die oben links im Chart die exakten Open, High, Low, Close und Volume-Werte der Kerze anzeigt, über der das Fadenkreuz gerade schwebt.
+
 
 
 

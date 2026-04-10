@@ -42,6 +42,9 @@ export class YAxisNode {
     ctx.strokeStyle = options.colors.grid;
     ctx.lineWidth = options.grid.horizontalLines.lineWidth;
 
+    // NEU: Gestrichelte Linien für das Grid
+    ctx.setLineDash([3, 3]);
+
     // Wir zeichnen 5 Ticks pro Pane
     for (let i = 0; i <= 5; i++) {
       const y = (paneHeight / 5) * i;
