@@ -24,6 +24,11 @@ export class ChartManager {
   
   public options: ChartConfig;
 
+  // OffscreenCanvas
+  private bgCanvas: HTMLCanvasElement;
+  private bgCtx: CanvasRenderingContext2D;
+  public isChartDirty: boolean = true; // Sagt uns, wann ein "neues Foto" nötig ist
+
   // Mathematik, Daten & Engines
   public timeScale: TimeScale = new TimeScale();
   public dataStore: DataStore = new DataStore();
@@ -41,6 +46,8 @@ export class ChartManager {
 
   public drawingManager: DrawingManager = new DrawingManager();
   public watermarkNode: WatermarkNode = new WatermarkNode();
+
+  public isLoadingHistory: boolean = false; // Verhindert API-Spam
   
   // Speicher für Callbacks (die Brücke/API wird sich hier registrieren)
   private eventListeners: Map<string, Array<(data: any) => void>> = new Map();
@@ -62,6 +69,10 @@ export class ChartManager {
 
     this.canvas = document.createElement('canvas');
     this.ctx = this.canvas.getContext('2d', { alpha: false })!;
+    this.bgCanvas = document.createElement('canvas');
+    // alpha: false macht das Canvas für den Browser noch schneller
+    this.bgCtx = this.bgCanvas.getContext('2d', { alpha: false })!;
+
     this.container.appendChild(this.canvas);
 
     this.setupResizing();
@@ -99,6 +110,7 @@ export class ChartManager {
   }
 
   public zoomPrice(deltaY: number) {
+    this.isChartDirty = true;
     const mainPane = this.panes.find(p => p.id === 'main');
     if (mainPane) {
       this.isAutoScaling = false; 
@@ -132,6 +144,13 @@ export class ChartManager {
   // ==========================================
 
   /**
+   * Gibt alle aktuellen Panes (Main, RSI, Volume etc.) als Array zurück.
+   */
+  public getPanes() {
+      return this.panes; 
+  }
+
+  /**
    * Snapshot-Tool: Exportiert den Canvas als Base64-Bild-String.
    */
   public toDataURL(): string {
@@ -142,6 +161,7 @@ export class ChartManager {
    * Zoom-API: Verändert die Kerzenbreite auf der X-Achse.
    */
   public zoomTime(factor: number) {
+    this.isChartDirty = true;
     this.timeScale.candleWidth *= factor;
     // Grenzen einhalten (nicht zu klein, nicht zu groß)
     this.timeScale.candleWidth = Math.max(1, Math.min(this.timeScale.candleWidth, 100));
@@ -151,6 +171,7 @@ export class ChartManager {
    * Live-Update API: Wird von außen aufgerufen, wenn ein neuer Tick (Trade) reinkommt.
    */
   public updateTick(tick: any) { // "any" oder importiere "CandleData"
+      this.isChartDirty = true;
       this.dataStore.updateTick(tick);
       
       // Auto-Scroll: Wenn wir ganz rechts im Chart sind, scrollen wir automatisch mit!
@@ -164,6 +185,26 @@ export class ChartManager {
       
       // (Da dein startRenderLoop ohnehin 60x pro Sekunde läuft, wird die neue Kerze 
       // sofort beim nächsten Frame gezeichnet. Wir müssen hier kein explizites render() rufen.)
+  }
+  
+  /**
+   * Wird von außen aufgerufen, wenn historische Daten geladen wurden.
+   */
+  public prependHistoricalData(historicalCandles: any[]) {
+      if (!historicalCandles || historicalCandles.length === 0) {
+          this.isLoadingHistory = false; // Nichts mehr zu laden (Anfang erreicht)
+          return;
+      }
+
+      // 1. Daten vorne anfügen
+      const addedCount = this.dataStore.prependData(historicalCandles);
+
+      // 2. ANTI-JUMP MAGIE: Den Scroll-Offset exakt um die Breite der neuen Kerzen verschieben
+      this.timeScale.scrollOffset += (addedCount * this.timeScale.candleWidth);
+
+      // 3. Status zurücksetzen und Foto neu schießen
+      this.isLoadingHistory = false;
+      this.isChartDirty = true;
   }
 
   /**
@@ -209,17 +250,36 @@ export class ChartManager {
 
   private updateSize() {
     const rect = this.container.getBoundingClientRect();
+    
+    // 1. Sichtbares Canvas anpassen
     this.canvas.width = rect.width * this.dpr;
     this.canvas.height = rect.height * this.dpr;
     this.canvas.style.width = `${rect.width}px`;
     this.canvas.style.height = `${rect.height}px`;
     this.ctx.scale(this.dpr, this.dpr);
+
+    // 2. Unsichtbares Canvas (Offscreen) exakt gleich anpassen
+    this.bgCanvas.width = rect.width * this.dpr;
+    this.bgCanvas.height = rect.height * this.dpr;
+    this.bgCtx.scale(this.dpr, this.dpr);
+    
+    // 3. Markieren, dass wir zwingend ein neues Foto brauchen, da sich die Größe geändert hat
+    this.isChartDirty = true; 
+
+    // 4. Jetzt erst zeichnen
     this.render();
   }
 
   private startRenderLoop() {
     const loop = () => {
-      this.render();
+      // Nur wenn sich was geändert hat, rufen wir das aufwändige render() auf
+      if (this.isChartDirty) {
+          this.render();
+      } else {
+          // Auch wenn nichts aufwändiges passiert, müssen wir zumindest 
+          // Layer 2 und 3 (Foto stempeln & Fadenkreuz zeichnen) in Gang halten!
+          this.render(); 
+      }
       requestAnimationFrame(loop);
     };
     requestAnimationFrame(loop);
@@ -231,72 +291,102 @@ export class ChartManager {
     const height = rect.height;
     const chartContentWidth = width - this.options.layout.axisWidth;
 
-    // 1. Hintergrund
-    this.ctx.fillStyle = this.options.colors.background;
-    this.ctx.fillRect(0, 0, width, height);
+    // ==========================================
+    // LAYER 1: CACHE ERSTELLEN (Nur wenn isChartDirty = true)
+    // Alles hier wird auf das unsichtbare bgCtx gezeichnet!
+    // ==========================================
+    if (this.isChartDirty) {
+        // 1. Hintergrund
+        this.bgCtx.fillStyle = this.options.colors.background;
+        this.bgCtx.fillRect(0, 0, width, height);
 
-    this.timeScale.width = chartContentWidth;
+        this.timeScale.width = chartContentWidth;
 
-    // 2. Sichtbarer Bereich berechnen
-    const totalDataCount = this.dataStore.getAllData().length;
-    const { start, end } = this.timeScale.getVisibleRange(totalDataCount);
-    const visibleData = this.dataStore.getVisibleData(start, end);
+        // 2. Sichtbarer Bereich berechnen
+        const totalDataCount = this.dataStore.getAllData().length;
+        const { start, end } = this.timeScale.getVisibleRange(totalDataCount);
+        const visibleData = this.dataStore.getVisibleData(start, end);
 
-    // 3. Grid zeichnen (Ausgelagert!)
-    this.gridNode.draw(this.ctx, chartContentWidth, height, this.timeScale, this.options, start, end);
+        // ==========================================
+        // NEU: INFINITE SCROLL TRIGGER
+        // ==========================================
+        // Wenn wir weniger als 50 Kerzen vom linken Rand entfernt sind und nicht schon laden
+        if (start < 50 && !this.isLoadingHistory && totalDataCount > 0) {
+            this.isLoadingHistory = true;
+            const oldestCandle = this.dataStore.getAllData()[0];
+            
+            // Event an dein React-Frontend feuern
+            this.emit('loadMoreHistoricalData', { 
+                oldestTime: oldestCandle ? oldestCandle.timestamp : null 
+            });
+        }
 
-    let currentY = 0;
+        // 3. Grid zeichnen (Ausgelagert!)
+        this.gridNode.draw(this.bgCtx, chartContentWidth, height, this.timeScale, this.options, start, end);
 
-    // 4. Panes rendern
-    this.panes.forEach(pane => {
-      const paneHeight = height * pane.heightWeight;
-      pane.priceScale.height = paneHeight;
+        let currentY = 0;
 
-      this.yAxisNode.draw(this.ctx, paneHeight, pane.priceScale, width, currentY, this.options, pane.id);
-      
-      // AutoScaling via Engine (Ausgelagert!)
-      if (this.isAutoScaling) {
-        this.autoScaleEngine.scalePane(pane, visibleData);
-      }
+        // 4. Panes rendern
+        this.panes.forEach(pane => {
+            const paneHeight = height * pane.heightWeight;
+            pane.priceScale.height = paneHeight;
 
-      this.ctx.save();
-      this.ctx.beginPath();
-      this.ctx.rect(0, currentY, chartContentWidth, paneHeight);
-      this.ctx.clip();
-      this.ctx.translate(0, currentY);
+            this.yAxisNode.draw(this.bgCtx, paneHeight, pane.priceScale, width, currentY, this.options, pane.id);
+            
+            // AutoScaling via Engine (Ausgelagert!)
+            if (this.isAutoScaling) {
+                this.autoScaleEngine.scalePane(pane, visibleData);
+            }
 
-      pane.draw(this.ctx, this.timeScale, this.options);
+            this.bgCtx.save();
+            this.bgCtx.beginPath();
+            this.bgCtx.rect(0, currentY, chartContentWidth, paneHeight);
+            this.bgCtx.clip();
+            this.bgCtx.translate(0, currentY);
 
-      // Watermark im Hintergrund der Main-Pane zeichnen
-      if (pane.id === 'main') {
-          this.watermarkNode.draw(this.ctx, this.timeScale, pane.priceScale, this.options);
-      }
+            pane.draw(this.bgCtx, this.timeScale, this.options);
 
-      // Den DrawingManager alle Shapes zeichnen lassen
-      if (pane.id === 'main') {
-        // LÖSCHEN: this.testLine.draw(...)
-        this.drawingManager.draw(this.ctx, this.timeScale, pane.priceScale, this.options);
-      }
+            // Watermark im Hintergrund der Main-Pane zeichnen
+            if (pane.id === 'main') {
+                this.watermarkNode.draw(this.bgCtx, this.timeScale, pane.priceScale, this.options);
+            }
 
-      this.ctx.restore();
+            // Den DrawingManager alle Shapes zeichnen lassen
+            if (pane.id === 'main') {
+                this.drawingManager.draw(this.bgCtx, this.timeScale, pane.priceScale, this.options);
+            }
 
-      this.ctx.strokeStyle = this.options.colors.axisLine;
-      this.ctx.strokeRect(0, currentY, chartContentWidth, paneHeight);
-      currentY += paneHeight;
-    });
+            this.bgCtx.restore();
 
-    // 5. X-Achse & Crosshair
-    this.xAxisNode.draw(this.ctx, chartContentWidth, height, this.timeScale, this.options, this.dataStore.getAllData());
+            this.bgCtx.strokeStyle = this.options.colors.axisLine;
+            this.bgCtx.strokeRect(0, currentY, chartContentWidth, paneHeight);
+            currentY += paneHeight;
+        });
 
-    // Crosshair NUR zeichnen, wenn wir im Pan-Modus sind ODER wenn ein Zeichenwerkzeug aktiv ist, 
-    // ABER NICHT, wenn wir gerade ein Objekt verschieben (isDraggingPoint)
+        // 5. X-Achse
+        this.xAxisNode.draw(this.bgCtx, chartContentWidth, height, this.timeScale, this.options, this.dataStore.getAllData());
+
+        // Foto ist fertig! Erst wieder neu zeichnen, wenn sich Daten/Skalen ändern.
+        this.isChartDirty = false;
+    }
+
+    // ==========================================
+    // LAYER 2: DAS FOTO AUF DEN BILDSCHIRM STEMPELN
+    // ==========================================
+    // Hier kopieren wir das fertige bgCanvas auf unser echtes ctx
+    this.ctx.drawImage(this.bgCanvas, 0, 0, width, height);
+
+
+    // ==========================================
+    // LAYER 3: DYNAMISCHE ELEMENTE (Fadenkreuz)
+    // Wird IMMER (60x pro Sekunde) auf das echte ctx gezeichnet
+    // ==========================================
     const mode = this.inputManager?.mode || 'crosshair_and_pan';
     const isDrawing = mode.startsWith('draw_');
     const isPanning = mode === 'crosshair_and_pan';
     
-    // (Optional: Wenn du das Crosshair GANZ ausblenden willst beim normalen Pannen, 
-    // dann setze die Bedingung unten einfach auf `if (this.mousePos && isDrawing)`)
-
+    // Crosshair NUR zeichnen, wenn wir im Pan-Modus sind ODER wenn ein Zeichenwerkzeug aktiv ist, 
+    // ABER NICHT, wenn wir gerade ein Objekt verschieben (isDraggingPoint)
     if (this.mousePos && (isDrawing || isPanning)) {
       this.crosshairNode.draw(
         this.ctx, this.mousePos, chartContentWidth, height, 

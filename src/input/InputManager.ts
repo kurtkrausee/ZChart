@@ -50,6 +50,7 @@ interface IChartManager {
   
   emit(eventName: string, data: any): void; // Event-Emitter-Methode
   dataStore: any; // Damit der InputManager auf die Kerzen zugreifen kann
+  isChartDirty: boolean; // Damit der InputManager den Manager zwingen kann, neu zu zeichnen
 }
 
 export class InputManager {
@@ -74,6 +75,10 @@ export class InputManager {
   private isScalingY: boolean = false;
   private startY: number = 0;
 
+  // Status-Variablen für Pane Resizing (Phase 15)
+  private isResizingPane: boolean = false;
+  private resizeSplitterIndex: number = -1; // Welcher Splitter wird gerade gezogen?
+
  // Status fürs Zeichnen
   private drawStep: number = 0;
   private activeDrawingNode: any = null;
@@ -82,11 +87,17 @@ export class InputManager {
   private isDraggingPoint: boolean = false;
   private draggedPointIndex: 1 | 2 | null = null;
 
+  // Status-Variablen für Mobile (Touch & Pinch-to-Zoom)
+  private initialPinchDistance: number = 0;
+  private initialCandleWidth: number = 0;
+
   constructor(canvas: HTMLCanvasElement, timeScale: TimeScale, manager: IChartManager) {
     this.canvas = canvas;
     this.timeScale = timeScale;
     this.manager = manager;
     this.attachListeners();
+
+    
   }
 
   private attachListeners() {
@@ -100,7 +111,17 @@ export class InputManager {
 
     // Wenn die Maus das Canvas verlässt, setzen wir das Fadenkreuz im Manager auf null
     this.canvas.addEventListener('mouseleave', () => this.manager.setMousePos(null, null));
-    window.addEventListener('paste', this.onPaste);  
+    window.addEventListener('paste', this.onPaste); 
+    this.manager.isChartDirty = true; 
+
+    // ==========================================
+    // MOBILE TOUCH EVENTS
+    // ==========================================
+    // passive: false ist GANZ wichtig, damit wir e.preventDefault() rufen können!
+    this.canvas.addEventListener('touchstart', this.onTouchStart, { passive: false });
+    this.canvas.addEventListener('touchmove', this.onTouchMove, { passive: false });
+    this.canvas.addEventListener('touchend', this.onTouchEnd);
+    this.canvas.addEventListener('touchcancel', this.onTouchEnd);
 }
 
   // ==========================================
@@ -250,7 +271,8 @@ export class InputManager {
     const rect = this.canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top; // NEU: Y-Koordinate wird jetzt benötigt
-    
+  
+        
     // Prüfen: Ist die Maus über der rechten Preisachse?
     // Wir nutzen hier die options direkt vom manager
     const isOverYAxis = x > (rect.width - this.manager.options.layout.axisWidth);
@@ -261,6 +283,27 @@ export class InputManager {
       this.canvas.style.cursor = 'ns-resize';
       return;
     } 
+
+    // ==========================================
+    // KLICK AUF PANE-SPLITTER (Start Resizing)
+    // ==========================================
+    if (typeof (this.manager as any).getPanes === 'function') {
+        const panes = (this.manager as any).getPanes();
+        const totalHeight = this.canvas.getBoundingClientRect().height;
+        let currentY = 0;
+        
+        for (let i = 0; i < panes.length - 1; i++) {
+            currentY += totalHeight * panes[i].heightWeight;
+            
+            if (Math.abs(y - currentY) <= 4) {
+                this.isResizingPane = true;
+                this.resizeSplitterIndex = i;
+                this.startY = e.clientY;
+                this.canvas.style.cursor = 'row-resize';
+                return; // Stopp: Wir resizen jetzt, kein Panning!
+            }
+        }
+    }
 
     // --- Logische Koordinaten beim Klick berechnen ---
     const logicalCoords = this.getLogicalCoordinates(x, y);
@@ -498,6 +541,44 @@ private onMouseMove = (e: MouseEvent) => {
     const logicalCoords = this.getLogicalCoordinates(x, y);
 
     // ==========================================
+    // NEU: DIRTY CHECK FÜR PERFORMANCE
+    // Wenn wir etwas ziehen, skalieren oder zeichnen -> "Neues Foto" anfordern!
+    // ==========================================
+    if (this.isDragging || this.isScalingY || this.isResizingPane || this.isDraggingPoint || (this.mode !== 'crosshair_and_pan' && this.activeDrawingNode)) {
+        this.manager.isChartDirty = true;
+    }
+
+
+
+    // ==========================================
+    // PANE RESIZING (Höhen dynamisch anpassen)
+    // ==========================================
+    if (this.isResizingPane) {
+        const deltaY = e.clientY - this.startY;
+        const panes = (this.manager as any).getPanes();
+        const totalHeight = this.canvas.getBoundingClientRect().height;
+        
+        // Pixel-Verschiebung in Prozent umrechnen
+        const deltaWeight = deltaY / totalHeight;
+
+        const topPane = panes[this.resizeSplitterIndex];
+        const bottomPane = panes[this.resizeSplitterIndex + 1];
+
+        // Schutzschalter: Ein Pane darf nicht kleiner als ca. 50 Pixel werden!
+        const minWeight = 50 / totalHeight;
+
+        if (topPane.heightWeight + deltaWeight > minWeight && bottomPane.heightWeight - deltaWeight > minWeight) {
+            // Dem einen Pane Prozentpunkte geben, dem anderen abziehen
+            topPane.heightWeight += deltaWeight;
+            bottomPane.heightWeight -= deltaWeight;
+
+            this.startY = e.clientY; // StartY für den nächsten Frame updaten
+            (this.manager as any).requestRedraw();
+        }
+        return; // Stopp: Nichts anderes machen, während wir ziehen
+    }
+
+    // ==========================================
     // CROSSHAIR EVENT FEUERN 
     // ==========================================
     if (logicalCoords) {
@@ -628,17 +709,42 @@ private onMouseUp = () => {
     this.isScalingY = false;
     this.isDraggingPoint = false;
     this.draggedPointIndex = null;
+    this.isResizingPane = false;
+    this.resizeSplitterIndex = -1;
 
     if (this.mode !== 'draw_trendline') { // Cursor nicht zurücksetzen, wenn wir noch zeichnen
         this.canvas.style.cursor = 'default';
     }
+    // NEU: Nach dem Loslassen einmal final den Chart neu zeichnen
+    this.manager.isChartDirty = true;
   };
 
   /**
    * Hilfsfunktion für dynamische Cursor-Icons
    */
   private updateCursor(x: number, y: number) {
-    if (this.isDragging || this.isScalingY || this.isDraggingPoint) return;
+
+    // ==========================================
+    // HOVER-CHECK FÜR PANE-SPLITTER
+    // ==========================================
+    if (typeof (this.manager as any).getPanes === 'function') {
+        const panes = (this.manager as any).getPanes();
+        const totalHeight = this.canvas.getBoundingClientRect().height;
+        let currentY = 0;
+        
+        // Wir prüfen alle Panes bis auf die letzte
+        for (let i = 0; i < panes.length - 1; i++) {
+            currentY += totalHeight * panes[i].heightWeight;
+            
+            // Wenn die Maus +/- 4 Pixel an dieser Grenze ist:
+            if (Math.abs(y - currentY) <= 4) {
+                this.canvas.style.cursor = 'row-resize';
+                return; // Cursor gesetzt, wir sind fertig
+            }
+        }
+    }
+
+    if (this.isDragging || this.isScalingY || this.isDraggingPoint || this.isResizingPane) return;
 
     if (this.mode === 'draw_trendline') {
         this.canvas.style.cursor = 'crosshair';
@@ -686,5 +792,133 @@ private onMouseUp = () => {
 
     // ScrollOffset korrigieren, damit der Punkt unter der Maus fix bleibt
     this.timeScale.scrollOffset = mouseX - (indexUnderMouse * this.timeScale.candleWidth);
+    this.manager.isChartDirty = true; 
   };
+
+  // ==========================================
+  // MOBILE TOUCH LOGIK (Phase 15)
+  // ==========================================
+
+  private onTouchStart = (e: TouchEvent) => {
+      e.preventDefault(); // Verhindert, dass die Webseite beim Wischen scrollt
+
+      const rect = this.canvas.getBoundingClientRect();
+
+      if (e.touches.length === 1) {
+          // EIN FINGER: Start Panning & Crosshair aktivieren
+          const touch = e.touches[0];
+          const x = touch.clientX - rect.left;
+          const y = touch.clientY - rect.top;
+
+          this.isDragging = true;
+          this.startX = touch.clientX;
+          this.startScrollOffset = this.timeScale.scrollOffset;
+
+          // Crosshair platzieren
+          this.manager.setMousePos(x, y);
+
+          // Prüfen, ob wir die Preisachse stauchen wollen (am rechten Rand wischen)
+          const isOverYAxis = x > (rect.width - this.manager.options.layout.axisWidth);
+          if (isOverYAxis) {
+              this.isScalingY = true;
+              this.startY = touch.clientY;
+          }
+      } 
+      else if (e.touches.length === 2) {
+          // ZWEI FINGER: Pinch-to-Zoom initialisieren
+          this.isDragging = false; // Panning sofort abbrechen
+          this.isScalingY = false;
+
+          const t1 = e.touches[0];
+          const t2 = e.touches[1];
+          
+          // Satz des Pythagoras: Wie weit sind die Finger voneinander entfernt?
+          this.initialPinchDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+          this.initialCandleWidth = this.timeScale.candleWidth;
+      }
+  };
+
+  private onTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      const rect = this.canvas.getBoundingClientRect();
+
+      if (e.touches.length === 1) {
+          // EIN FINGER: Panning & Crosshair updaten
+          const touch = e.touches[0];
+          const x = touch.clientX - rect.left;
+          const y = touch.clientY - rect.top;
+
+          this.manager.setMousePos(x, y);
+
+          // Preisachse ziehen
+          if (this.isScalingY) {
+              const deltaY = touch.clientY - this.startY;
+              this.startY = touch.clientY;
+              this.manager.zoomPrice(deltaY);
+              this.manager.isChartDirty = true;
+              return;
+          }
+
+          // Chart horizontal verschieben
+          if (this.isDragging && !this.activeDrawingNode) {
+              const deltaX = touch.clientX - this.startX;
+              this.timeScale.scrollOffset = this.startScrollOffset + deltaX;
+              this.manager.isChartDirty = true;
+          }
+
+          // Crosshair Live-Update für Mobile
+          const logicalCoords = this.getLogicalCoordinates(x, y);
+          if (logicalCoords) {
+              const dataArray = this.manager.dataStore.getAllData();
+              const hoveredCandle = dataArray[logicalCoords.index] || null;
+
+              this.manager.emit('crosshairMove', {
+                  x: x, y: y,
+                  price: logicalCoords.price, time: logicalCoords.time,
+                  index: logicalCoords.index, paneId: logicalCoords.paneId,
+                  candle: hoveredCandle
+              });
+          }
+
+      } 
+      else if (e.touches.length === 2) {
+          // ZWEI FINGER: Zoom berechnen
+          const t1 = e.touches[0];
+          const t2 = e.touches[1];
+          const currentDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+
+          if (this.initialPinchDistance > 0) {
+              // Verhältnis aus neuer und alter Entfernung = Zoomfaktor
+              const scale = currentDistance / this.initialPinchDistance;
+              
+              this.timeScale.candleWidth = this.initialCandleWidth * scale;
+              // Zoom-Grenzen einhalten
+              this.timeScale.candleWidth = Math.max(1, Math.min(this.timeScale.candleWidth, 100));
+              
+              this.manager.isChartDirty = true;
+          }
+      }
+  };
+
+  private onTouchEnd = (e: TouchEvent) => {
+      e.preventDefault();
+      
+      if (e.touches.length === 0) {
+          // Alle Finger weg -> Alles zurücksetzen
+          this.isDragging = false;
+          this.isScalingY = false;
+          this.initialPinchDistance = 0;
+          
+          this.manager.setMousePos(null, null); // Crosshair ausblenden
+          this.manager.isChartDirty = true;
+      } 
+      else if (e.touches.length === 1) {
+          // Einer von zwei Fingern wurde losgelassen -> Zurück in den Panning-Modus
+          this.initialPinchDistance = 0;
+          this.isDragging = true;
+          this.startX = e.touches[0].clientX;
+          this.startScrollOffset = this.timeScale.scrollOffset;
+      }
+  };
+
 }

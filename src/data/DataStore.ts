@@ -92,4 +92,17 @@ export class DataStore {
       data[i].rsi = 100 - (100 / (1 + avgGain / avgLoss));
     }
   }
+
+   /**
+   * Fügt historische Kerzen VORNE an das Array an (für Infinite Scroll).
+   * @returns Die Anzahl der hinzugefügten Kerzen (wichtig für die Offset-Korrektur)
+   */
+  public prependData(historicalData: any[]): number {
+      if (!historicalData || historicalData.length === 0) return 0;
+      
+      // Die neuen alten Daten vorne anfügen
+      this.data = [...historicalData, ...this.data];
+      
+      return historicalData.length;
+  }
 } 

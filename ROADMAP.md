@@ -106,7 +106,12 @@
 - [x] Watermark: Eine `WatermarkNode` (Rolle: `background`), die als Basis-Layer zentriert im Canvas gerendert wird (z.B. für den transparenten Text "BTC/USDT 1H" im Hintergrund).
 - [x] OHLCV Legend: Eine `LegendNode` (oder Erweiterung des Crosshair-Events), die oben links im Chart die exakten Open, High, Low, Close und Volume-Werte der Kerze anzeigt, über der das Fadenkreuz gerade schwebt.
 
-
+# Phase 15: The Endgame (ZChart Core v1.2)
+- [ ] **Touch & Mobile Support:** Erweiterung des `InputManager` um Touch-Events (`touchstart`, `touchmove`, `touchend`) und Implementierung von Pinch-to-Zoom für mobile Geräte.
+- [x] **Infinite Scroll (Pagination):** Logik zum dynamischen Nachladen von historischen Kerzen-Daten, sobald der User an den linken Rand des Charts scrollt (inkl. API-Event `onLoadMoreHistoricalData`).
+- [x] **Pane Resizing:** Interaktive, unsichtbare Hitboxen zwischen den Panes (z.B. zwischen Main-Chart und RSI), um die Höhen der einzelnen Bereiche mit der Maus dynamisch zu verschieben.
+- [x] **OffscreenCanvas (Performance Boost):** Auslagern von statischen Elementen (Watermark, Hintergrund-Grid) auf ein unsichtbares Canvas, das als vorberechnetes Bild gerendert wird, um die CPU-Last massiv zu minimieren.
+- [ ] Tipp für absolute Mega-Performance: Wenn du willst, dass der Browser WIRKLICH 0% CPU verbraucht, wenn sich die Maus nicht bewegt, können wir die Render-Schleife später sogar noch cleverer machen. Aber für jetzt reicht dieser Standard-Block völlig aus, da das OffscreenCanvas (Layer 1) ja bereits 99% der Arbeit abfängt!
 
 
 

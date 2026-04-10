@@ -318,4 +318,14 @@ export class ZChartAPI {
              (this.manager as any).updateTick(tick);
         }
     }
+
+    /**
+     * Fügt historische Daten vorne an den Chart an (Pagination).
+     * @param historicalCandles Array von alten Kerzen (z.B. aus der Datenbank)
+     */
+    public prependHistoricalData(historicalCandles: any[]) {
+        if (typeof (this.manager as any).prependHistoricalData === 'function') {
+            (this.manager as any).prependHistoricalData(historicalCandles);
+        }
+    }
 }
