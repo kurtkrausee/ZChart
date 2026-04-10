@@ -9,7 +9,7 @@ export interface CandleData {
   low: number;
   close: number;
   volume: number;
-  rsi?: number; // NEU: Das Fragezeichen bedeutet "optional"
+  rsi?: number; 
 }
 
 export class DataStore {
@@ -63,7 +63,6 @@ export class DataStore {
     this.data = sampleData as CandleData[];
   }
 
-  // --- DIE METHODE MUSS HIER REIN (vor die letzte Klammer) ---
   public calculateRSI(period: number = 14) {
     const data = this.data;
     if (data.length <= period) return;
@@ -93,4 +92,4 @@ export class DataStore {
       data[i].rsi = 100 - (100 / (1 + avgGain / avgLoss));
     }
   }
-} // <--- Das ist die finale Klammer der Klasse
+} 

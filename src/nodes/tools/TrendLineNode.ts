@@ -14,7 +14,9 @@ export interface LogicalPoint {
 
 // 2. Hier startet die Klasse (nur EINMAL deklariert)
 export class TrendLineNode extends SceneNode {
-    public role = 'tool'; // <--- Hier sitzt die Rolle perfekt!
+    public role = 'tool';
+    public color: string = '#2962FF';
+    public lineWidth: number = 2;
     
     public id: string = crypto.randomUUID(); // Eindeutige ID für den Object Tree
     public name: string = 'Trendlinie';     // Anzeigename im Baum

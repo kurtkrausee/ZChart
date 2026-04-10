@@ -32,7 +32,7 @@ export interface IPane {
   getPriceScale(): { yToPrice(y: number): number; priceToY(price: number): number };
 }
 
-// --- NEU: Werkzeug-Modi ---
+// --- Werkzeug-Modi ---
 export type InputMode = 'crosshair_and_pan' | 'draw_trendline' | 'draw_fibo' | 'draw_emoji' | 'draw_text' | 'draw_pen'   ;
 
 
@@ -42,14 +42,14 @@ export type InputMode = 'crosshair_and_pan' | 'draw_trendline' | 'draw_fibo' | '
  */
 interface IChartManager {
   options: ChartConfig;
-  drawingManager: DrawingManager; // NEU: Zugriff auf alle Zeichnungen
+  drawingManager: DrawingManager; // Zugriff auf alle Zeichnungen
   zoomPrice(deltaY: number): void;
   setMousePos(x: number | null, y: number | null): void;
-  // NEU: Der Manager muss uns sagen können, welche Pane an Pixel-Y liegt
+  // Der Manager muss uns sagen können, welche Pane an Pixel-Y liegt
   getPaneAt(pixelY: number): IPane | null;
   
-  emit(eventName: string, data: any): void; // NEU: Event-Emitter-Methode
-  dataStore: any; // NEU: Damit der InputManager auf die Kerzen zugreifen kann
+  emit(eventName: string, data: any): void; // Event-Emitter-Methode
+  dataStore: any; // Damit der InputManager auf die Kerzen zugreifen kann
 }
 
 export class InputManager {
@@ -57,7 +57,7 @@ export class InputManager {
   private timeScale: TimeScale;
   private manager: IChartManager; // Die direkte, saubere Verbindung zum ChartManager
 
-  // --- NEU: Aktueller Modus ---
+  // --- Aktueller Modus ---
   public mode: InputMode = 'crosshair_and_pan';
 
   // Magnet Mode aktivieren
@@ -103,7 +103,7 @@ export class InputManager {
     window.addEventListener('paste', this.onPaste);  
 }
 
-// ==========================================
+  // ==========================================
   // COPY & PASTE
   // ==========================================
   private onPaste = (e: ClipboardEvent) => {
@@ -159,7 +159,7 @@ export class InputManager {
             
             htmlImage.src = imgURL;
             e.preventDefault(); // Browser Standard-Aktion verhindern
-            return; // Wir sind fertig, keine Texte mehr prüfen
+            return; 
         }
     }
 
@@ -228,13 +228,13 @@ export class InputManager {
                 // Magnet-Radius: 20 Pixel
                 if (dist < 20 && dist < closestDist) {
                     closestDist = dist;
-                    price = p;       // Wir snappen den echten Preis!
-                    finalY = yPos;   // Wir snappen die Y-Koordinate!
+                    price = p;       
+                    finalY = yPos;   
                 }
             }
         }
     }
-    // ==========================================
+    
 
     return {
       x: pixelX,
@@ -262,7 +262,7 @@ export class InputManager {
       return;
     } 
 
-    // --- NEU (Phase 8): Logische Koordinaten beim Klick berechnen ---
+    // --- Logische Koordinaten beim Klick berechnen ---
     const logicalCoords = this.getLogicalCoordinates(x, y);
     if (!logicalCoords || logicalCoords.paneId !== 'main') return;
 
@@ -270,7 +270,7 @@ export class InputManager {
     const priceScale = targetPane?.getPriceScale() as any;
 
     // ==========================================
-    // MODUS: STANDARD (Auswählen & Modifizieren)
+    // STANDARD (Auswählen & Modifizieren)
     // ==========================================
     if (this.mode === 'crosshair_and_pan') {
 
@@ -282,7 +282,7 @@ export class InputManager {
                     this.isDraggingPoint = true;
                     this.draggedPointIndex = anchorHit;
                     this.activeDrawingNode = shape;
-                    return; // Stopp: Wir verschieben einen Punkt, nicht pannen!
+                    return; 
                 }
             }
         }
@@ -300,9 +300,8 @@ export class InputManager {
             }
         }
         
-        if (hitFound) return; // Stopp: Wir haben etwas markiert, nicht pannen!
+        if (hitFound) return; 
         
-        // Wenn wir hier ankommen, haben wir ins "Leere" geklickt -> Alles deselektieren
         this.manager.drawingManager.deselectAll();
     }
 
@@ -332,7 +331,7 @@ export class InputManager {
             this.activeDrawingNode.point2 = { index: logicalCoords.index, price: logicalCoords.price };
             this.activeDrawingNode.isSelected = true; // Neu gezeichnete Linie direkt markieren
             
-            // --- NEU (Phase 9): Die Brücke benachrichtigen ---
+
             // Wir feuern das Event, BEVOR wir die Referenz auf null setzen.
             // Die Web-App erhält so das fertige Objekt inklusive seiner neuen ID.
             this.manager.emit('drawingCreated', {
@@ -471,12 +470,11 @@ export class InputManager {
     // ==========================================
     else if (this.mode === 'draw_pen') {
         const newPen = new PenNode();
-        // Ersten Punkt hinzufügen
         newPen.points.push({ index: logicalCoords.index, price: logicalCoords.price });
         
         this.manager.drawingManager.shapes.push(newPen);
         this.activeDrawingNode = newPen;
-        this.isDragging = true; // Wir "ziehen" jetzt den Stift über das Papier
+        this.isDragging = true; 
         return;
     }
 
@@ -500,7 +498,7 @@ private onMouseMove = (e: MouseEvent) => {
     const logicalCoords = this.getLogicalCoordinates(x, y);
 
     // ==========================================
-    // NEU: CROSSHAIR EVENT FEUERN (Phase 12)
+    // CROSSHAIR EVENT FEUERN 
     // ==========================================
     if (logicalCoords) {
         const dataArray = this.manager.dataStore.getAllData();
@@ -600,9 +598,8 @@ private onMouseMove = (e: MouseEvent) => {
   };
 
 private onMouseUp = () => {
-    // Wenn wir gerade einen Punkt verschoben haben...
     if (this.isDraggingPoint && this.activeDrawingNode) {
-        // ...feuern wir ein Event mit den neuen Daten!
+        
         this.manager.emit('drawingChanged', {
             id: this.activeDrawingNode.id,
             type: 'trendline',
@@ -613,7 +610,6 @@ private onMouseUp = () => {
         });
     }
 
-    // Wenn wir einen Stift absetzen...
     if (this.mode === 'draw_pen' && this.activeDrawingNode) {
         this.activeDrawingNode.isSelected = true;
         

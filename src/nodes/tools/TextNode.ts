@@ -80,6 +80,6 @@ export class TextNode extends SceneNode {
     }
 
     public hitTestAnchor(): 1 | 2 | null {
-        return null; // Text hat keine ziehbaren "Endpunkte" wie eine Trendlinie
+        return null; 
     }
 }

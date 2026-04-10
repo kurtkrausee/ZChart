@@ -3,11 +3,11 @@
 import type { TimeScale } from '../../math/TimeScale';
 import type { PriceScale } from '../../math/PriceScale';
 import type { CandleData } from '../../data/DataStore';
-import { SceneNode } from '../core/SceneNode'; // Pfad ggf. anpassen!
-import type { ChartConfig } from '../../core/ChartOptions'; // WICHTIG FÜR SIGNATUR
+import { SceneNode } from '../core/SceneNode';
+import type { ChartConfig } from '../../core/ChartOptions';
 
 export class AreaNode extends SceneNode {
-    public role = 'series'; // Hier ist die wichtige Rolle!
+    public role = 'series'; 
     private data: CandleData[];
 
     // Wir übergeben die Daten im Konstruktor (wie bei CandlestickNode den DataStore)

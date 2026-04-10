@@ -20,7 +20,7 @@ export class DrawingManager {
         options: ChartConfig
     ) {
         this.shapes.forEach(shape => {
-            // NEU: Nur zeichnen, wenn das Auge im Object Tree offen ist
+            // Nur zeichnen, wenn das Auge im Object Tree offen ist
             if (shape.isVisible) {
                 shape.draw(ctx, timeScale, priceScale, options);
             }

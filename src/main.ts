@@ -16,11 +16,11 @@ const zChartAPI = new ZChartAPI(chart);
 // von überall (auch aus anderen JS-Dateien) darauf zugreifen können.
 (window as any).zChart = zChartAPI; 
 
-// NEU: Wir machen auch den internen Chart-Manager für die Konsole greifbar!
+// Wir machen auch den internen Chart-Manager für die Konsole greifbar!
 (window as any).chart = chart;
 
 // ---------------------------------------------------------
-// AB HIER DEIN BESTEHENDER CODE (Panes & Nodes)
+// Panes & Nodes
 // ---------------------------------------------------------
 chart.dataStore.calculateRSI(14);
 
@@ -57,8 +57,6 @@ window.addEventListener('keydown', (e) => {
         const selectedId = chart.drawingManager.getSelectedShapeId();
         if (selectedId) {
             zChartAPI.deleteDrawing(selectedId);
-            // Wir müssen ein Event feuern, damit dein Object Tree rechts weiß, 
-            // dass das Element gelöscht wurde!
             chart.emit('drawingDeleted', selectedId);
         }
     }

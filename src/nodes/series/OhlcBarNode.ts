@@ -1,7 +1,5 @@
 // nodes/series/OhlcBarNode.ts
 
-// OHLC bar rendering: vertical wick + left tick (open) + right tick (close)
-
 import type { ChartConfig } from '../../core/ChartOptions';
 import { TimeScale } from '../../math/TimeScale';
 import { PriceScale } from '../../math/PriceScale';

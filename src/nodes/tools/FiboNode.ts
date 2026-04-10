@@ -100,12 +100,12 @@ export class FiboNode extends SceneNode {
         // 3. Haupt-Trendlinie (Diagonal) für Hit-Testing und Optik zeichnen
         ctx.strokeStyle = this.isSelected ? '#FFD700' : (this.isHovered ? '#4ea2ff' : 'rgba(120, 123, 134, 0.5)');
         ctx.lineWidth = this.isSelected ? 2 : 1;
-        ctx.setLineDash([5, 5]); // Gestrichelt
+        ctx.setLineDash([5, 5]); 
         ctx.beginPath();
         ctx.moveTo(x1, y1);
         ctx.lineTo(x2, y2);
         ctx.stroke();
-        ctx.setLineDash([]); // Reset
+        ctx.setLineDash([]); 
 
         // Ankerpunkte zum Greifen
         if (this.isSelected || this.isHovered) {
@@ -145,7 +145,6 @@ export class FiboNode extends SceneNode {
         const x2 = timeScale.indexToX(this.point2.index);
         const y2 = priceScale.priceToY(this.point2.price);
 
-        // Wir testen der Einfachheit halber nur die Hauptdiagonale
         const distance = distanceToLineSegment(pixelX, pixelY, x1, y1, x2, y2);
         return distance <= this.HIT_TOLERANCE;
     }

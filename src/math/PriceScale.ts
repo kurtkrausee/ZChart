@@ -4,8 +4,6 @@ export class PriceScale {
   public height: number = 0;
   public minPrice: number = 0;
   public maxPrice: number = 100;
-
-  // NEU: Diese Werte brauchen wir für den Area-Fill und das Grid
   public visibleMin: number = 0;
   public visibleMax: number = 100;
 
@@ -36,13 +34,13 @@ export class PriceScale {
     this.minPrice = min;
     this.maxPrice = max;
 
-    // NEU: Hier "merken" wir uns die Werte für die Nodes
+    // Hier "merken" wir uns die Werte für die Nodes
     this.visibleMin = min;
     this.visibleMax = max;
   }
 
   /**
-   * NEU: Zoomt/Staucht die Preisachse manuell
+   * Zoomt/Staucht die Preisachse manuell
    * deltaY > 0 (Maus runter): Stauchen (Bereich wird größer)
    * deltaY < 0 (Maus hoch): Strecken (Bereich wird kleiner)
    */

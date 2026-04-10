@@ -36,7 +36,7 @@ export class CandlestickNode extends SceneNode {
 
     for (let i = 0; i < visibleData.length; i++) {
       const candle = visibleData[i];
-      const realIndex = start + i; // Der echte Index auf der X-Achse
+      const realIndex = start + i;
       
       const x = timeScale.indexToX(realIndex);
       

@@ -21,7 +21,7 @@ export class AutoScaleEngine {
         this.scaleVolume(pane, visibleData);
         break;
       default:
-        // Späterer Hook für dynamische/eigene Indikatoren
+        this.scaleDynamic(pane, visibleData);
         break;
     }
   }
@@ -48,5 +48,40 @@ export class AutoScaleEngine {
       if (c.volume > maxVol) maxVol = c.volume;
     }
     pane.priceScale.setRange(0, maxVol * 1.1); // 10% Platz nach oben
+  }
+
+  /**
+   * Generischer Hook für alle unbekannten/eigenen Indikatoren.
+   * Sucht in den Daten automatisch nach dem Schlüssel, der der pane.id entspricht.
+   */
+  private scaleDynamic(pane: Pane, visibleData: any[]) {
+    let min = Infinity; 
+    let max = -Infinity;
+    const dataKey = pane.id; // z.B. 'macd', 'atr', 'momentum'
+
+    for (const candle of visibleData) {
+      // Wir greifen dynamisch auf den Wert zu (z.B. candle['macd'])
+      const value = candle[dataKey]; 
+      
+      if (value !== undefined && value !== null) {
+        if (value > max) max = value;
+        if (value < min) min = value;
+      }
+    }
+
+    // Wenn wir gültige Daten gefunden haben, skalieren wir
+    if (min !== Infinity && max !== -Infinity) {
+      // Wenn min und max exakt gleich sind (z.B. flache Linie), brauchen wir künstliches Padding
+      if (min === max) {
+          pane.priceScale.setRange(min - 1, max + 1);
+          return;
+      }
+      
+      const padding = (max - min) * 0.1; // 10% Luft oben und unten
+      pane.priceScale.setRange(min - padding, max + padding);
+    } else {
+      // Fallback, falls die Daten (noch) nicht da sind
+      pane.priceScale.setRange(0, 100);
+    }
   }
 }

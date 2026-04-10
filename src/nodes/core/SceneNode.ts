@@ -1,17 +1,16 @@
 // nodes/core/SceneNode.ts
-// Version: 1.1.0 | Updated: 2026-04-09
+
 import { TimeScale } from '../../math/TimeScale';
 import { PriceScale } from '../../math/PriceScale';
 import type { ChartConfig } from '../../core/ChartOptions';
 
-// Strengere Typisierung (besser als nur `string`), verhindert Tippfehler im Team
 export type NodeRole = 'series' | 'tool' | 'axis' | 'background';
 
 export abstract class SceneNode {
-  // Phase 9.2: Eindeutige ID für den Object Tree
+  // Eindeutige ID für den Object Tree
   public id: string = crypto.randomUUID(); 
 
-  // Phase 9.2: Toggle für das Ausblenden im Object Tree
+  // Toggle für das Ausblenden im Object Tree
   public isVisible: boolean = true;
 
   // Standard-Ebene ist 0. Höhere Zahlen liegen weiter "vorne".
@@ -24,7 +23,7 @@ export abstract class SceneNode {
   public isHovered: boolean = false;
   public isSelected: boolean = false;
 
-  // Phase 11: Rotation-Logic (für Emojis und Texte)
+  // Rotation-Logic (für Emojis und Texte)
   public rotation: number = 0; // Wert in Radiant (0 = ungedreht)
 
   // Die abstrakte Methode, die JEDE Node implementieren MUSS
