@@ -349,4 +349,41 @@ export class ZChartAPI {
             };
         }).reverse(); // Reverse, damit das oberste Objekt im Chart auch oben in der Liste steht!
     }
+    /**
+     * Holt alle zusätzlichen Panes (außer dem Haupt-Chart) für die UI
+     */
+    public getPanes() {
+        // Wir nehmen an, ChartManager hat eine Eigenschaft 'panes'
+        const panes = (this.manager as any).panes || [];
+        return panes
+            .filter((p: any) => p.id !== 'main') // Das Haupt-Chart (Kerzen) darf man nicht löschen!
+            .map((p: any) => ({
+                id: p.id,
+                name: p.id.toUpperCase() // Aus 'volume' wird 'VOLUME'
+            }));
+    }
+
+    /**
+     * Löscht ein Pane komplett aus der Engine
+     */
+    public deletePane(id: string) {
+        const panes = (this.manager as any).panes;
+        if (!panes) return;
+
+        const index = panes.findIndex((p: any) => p.id === id);
+        if (index > -1) {
+            panes.splice(index, 1); // Pane aus dem Array werfen
+            
+            // WICHTIG: Wenn ein Pane verschwindet, muss der Canvas seine
+            // Höhen neu berechnen (das mainPane wird dadurch wieder größer!)
+            if (typeof (this.manager as any).resize === 'function') {
+                (this.manager as any).resize();
+            } else {
+                this.manager.render();
+            }
+            
+            // React benachrichtigen, dass sich die Liste geändert hat!
+            this.emit('paneDeleted', id); 
+        }
+    }
 }

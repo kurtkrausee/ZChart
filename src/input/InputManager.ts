@@ -386,14 +386,21 @@ export class InputManager {
                 }
             });
 
+            // ==========================================
+            // NEU: HIER RUFEN WIR DIE REACT UI AN!
+            // ==========================================
+            if ((window as any).zChart) {
+                (window as any).zChart.emit('drawingAdded');
+            }
+
             this.drawStep = 0; 
             this.activeDrawingNode = null;
-            this.mode = 'crosshair_and_pan'; // Zurück zum Standard-Mauszeiger!
+            this.mode = 'crosshair_and_pan'; 
             
-            // Dem Manager sagen, dass er den Cursor aktualisieren und neu zeichnen soll
             this.manager.setMousePos(x, y); 
             return;
         }
+
     }
     
     // ==========================================
@@ -424,6 +431,13 @@ export class InputManager {
                     point2: this.activeDrawingNode.point2
                 }
             });
+
+            // ==========================================
+            // NEU: HIER RUFEN WIR DIE REACT UI AN!
+            // ==========================================
+            if ((window as any).zChart) {
+                (window as any).zChart.emit('drawingAdded');
+            }
 
             this.drawStep = 0; 
             this.activeDrawingNode = null;
