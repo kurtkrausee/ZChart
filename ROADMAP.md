@@ -111,32 +111,6 @@
 - [x] **Infinite Scroll (Pagination):** Logik zum dynamischen Nachladen von historischen Kerzen-Daten, sobald der User an den linken Rand des Charts scrollt (inkl. API-Event `onLoadMoreHistoricalData`).
 - [x] **Pane Resizing:** Interaktive, unsichtbare Hitboxen zwischen den Panes (z.B. zwischen Main-Chart und RSI), um die Höhen der einzelnen Bereiche mit der Maus dynamisch zu verschieben.
 - [x] **OffscreenCanvas (Performance Boost):** Auslagern von statischen Elementen (Watermark, Hintergrund-Grid) auf ein unsichtbares Canvas, das als vorberechnetes Bild gerendert wird, um die CPU-Last massiv zu minimieren.
-- [ ] Tipp für absolute Mega-Performance: Wenn du willst, dass der Browser WIRKLICH 0% CPU verbraucht, wenn sich die Maus nicht bewegt, können wir die Render-Schleife später sogar noch cleverer machen. Aber für jetzt reicht dieser Standard-Block völlig aus, da das OffscreenCanvas (Layer 1) ja bereits 99% der Arbeit abfängt!
+- [x] Tipp für absolute Mega-Performance: Wenn du willst, dass der Browser WIRKLICH 0% CPU verbraucht, wenn sich die Maus nicht bewegt, können wir die Render-Schleife später sogar noch cleverer machen. Aber für jetzt reicht dieser Standard-Block völlig aus, da das OffscreenCanvas (Layer 1) ja bereits 99% der Arbeit abfängt!
 
 
-
-----------------------------------------------------
-
- ROADMAP ZChart-Pro:
-
- # Phase 1: Multi-Pane & Layout Engine (Die wichtigste Phase!)
-
-- [] Split-Screen-Manager: Die Fähigkeit, den Chart in Haupt-Chart (oben) und Indikator-Panes (unten) aufzuteilen.
-- [] Resizing (Splitter): Interaktive Trennlinien zwischen den Panes, die der User mit der Maus greifen kann, um z.B. den RSI größer oder kleiner zu ziehen (Höhen-Redistribution).
-- [] Pane-Controls: Kleine UI-Buttons (in Canvas oder HTML) zum Minimieren, Maximieren oder Schließen von Indikator-Fenstern.
-
-# Phase 2: Interaktive Achsen & Scaling (Das Profi-Gefühl)
-
-- [] Y-Axis Dragging: Wenn der User die Preisachse klickt und zieht, wird der Chart gestaucht oder gestreckt (autoScale wird temporär deaktiviert).
-- [] Logarithmische Skala: Ein Schalter, um die Preisachse von linear auf logarithmisch umzustellen (extrem wichtig für Krypto-Charts).
-- [] X-Axis Dragging: Feintuning für das Zusammenstauchen der Zeitachse durch Ziehen auf der Datum-Leiste.
-
-# Phase 3: Advanced Technical Indicators
-
-- [] Indikator-Bibliothek: Komplexe Berechnungen wie MACD, Bollinger Bänder oder Ichimoku-Wolken.
-- [] Multi-Series Rendering: Mehrere Datenserien übereinander legen (z.B. Bitcoin-Kurs und Ethereum-Kurs im selben Chart vergleichen).
-
-# Phase 4: Pro Drawing Tools
-
-- [] Volume Profile (Sichtbarer Bereich): Ein Histogramm, das nicht unten auf der X-Achse liegt, sondern an der Y-Achse (Preis) klebt und berechnet, bei welchem Preis das meiste Volumen gehandelt wurde.
-- [] Komplexe Geometrien: Pitchforks (Schiff), Gann Boxen und komplexe Fibonacci-Zeitzonen.

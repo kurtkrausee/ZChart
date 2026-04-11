@@ -270,19 +270,38 @@ export class ChartManager {
     this.render();
   }
 
+// 1. Die ID speichern wir, um den Loop beenden zu können
+  private animationFrameId: number | null = null;
+
+  // 2. Wieder private, da es nur intern vom ChartManager gestartet wird
   private startRenderLoop() {
     const loop = () => {
-      // Nur wenn sich was geändert hat, rufen wir das aufwändige render() auf
+      
       if (this.isChartDirty) {
           this.render();
+          this.isChartDirty = false; // Setzt den Status nach dem "großen" Render zurück
       } else {
           // Auch wenn nichts aufwändiges passiert, müssen wir zumindest 
           // Layer 2 und 3 (Foto stempeln & Fadenkreuz zeichnen) in Gang halten!
           this.render(); 
       }
-      requestAnimationFrame(loop);
+      
+      // Die ID beim Aufruf IMMER speichern!
+      this.animationFrameId = requestAnimationFrame(loop);
     };
-    requestAnimationFrame(loop);
+    
+    // Erste Initialisierung
+    if (this.animationFrameId === null) {
+        this.animationFrameId = requestAnimationFrame(loop);
+    }
+  }
+
+  public destroy() {
+      if (this.animationFrameId !== null) {
+          cancelAnimationFrame(this.animationFrameId); 
+          this.animationFrameId = null;
+      }
+      // Hier können später auch Event-Listener (Mouse, Resize) entfernt werden
   }
 
   public render() {

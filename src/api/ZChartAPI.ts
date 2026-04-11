@@ -83,6 +83,7 @@ export class ZChartAPI {
      */
     public deleteDrawing(id: string) {
         this.manager.drawingManager.removeDrawing(id);
+        this.emit('drawingDeleted', id);
     }
 
     /**
@@ -327,5 +328,25 @@ export class ZChartAPI {
         if (typeof (this.manager as any).prependHistoricalData === 'function') {
             (this.manager as any).prependHistoricalData(historicalCandles);
         }
+    }
+    /**
+     * Holt alle Objekte für den React Object Tree
+     */
+    public getAllDrawings() {
+        return this.manager.drawingManager.shapes.map((shape) => {
+            // Wir geben den Objekten schöne Namen für die UI
+            let displayName = 'Zeichnung';
+            if (shape instanceof TrendLineNode) displayName = 'Trendlinie';
+            else if (shape instanceof FiboNode) displayName = 'Fibonacci';
+            else if (shape instanceof EmojiNode) displayName = 'Emoji';
+            else if (shape instanceof TextNode) displayName = 'Text';
+            else if (shape instanceof PenNode) displayName = 'Pinsel';
+            
+            return {
+                id: shape.id,
+                name: displayName,
+                visible: shape.isVisible
+            };
+        }).reverse(); // Reverse, damit das oberste Objekt im Chart auch oben in der Liste steht!
     }
 }
