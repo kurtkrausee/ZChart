@@ -90,8 +90,23 @@ export class ZChartAPI {
      * Schaltet Sichtbarkeit im Baum um
      */
     public setVisible(id: string, visible: boolean) {
+        // 1. Suche in den Zeichnungen (Trendlinien etc.)
         const shape = this.manager.drawingManager.shapes.find(s => s.id === id);
-        if (shape) shape.isVisible = visible;
+        if (shape) {
+            shape.isVisible = visible;
+        }
+
+        // 2. NEU: Suche in den festen Nodes (wie Kerzen oder RSI-Linien)
+        const mainPane = (this.manager as any).panes.find((p:any) => p.id === 'main');
+        if (mainPane) {
+            const node = mainPane.nodes.find((n:any) => n.id === id);
+            if (node) {
+                node.isVisible = visible;
+            }
+        }
+        
+        // Immer neu zeichnen!
+        this.manager.render();
     }
 
     /**
@@ -385,5 +400,16 @@ export class ZChartAPI {
             // React benachrichtigen, dass sich die Liste geändert hat!
             this.emit('paneDeleted', id); 
         }
+    }
+
+    public setTimeframe(tf: string) {
+        console.log(`[ZChart Engine] Zeiteinheit gewechselt auf: ${tf}`);
+        // Hier schreibst du später die Logik rein, die neue Kerzen vom Server lädt
+    }
+
+    public loadSymbol(symbol: string) {
+        console.log(`[ZChart Engine] Lade neuen Chart für: ${symbol}`);
+        // Hier schreibst du später die Logik rein, die neue Kerzen vom Server lädt
+        this.setWatermark(symbol); // Zeigt das neue Symbol direkt im Hintergrund an!
     }
 }

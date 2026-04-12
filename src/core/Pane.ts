@@ -30,5 +30,21 @@ export class Pane {
     sortedNodes.forEach(node => {
       node.draw(ctx, timeScale, this.priceScale, options);
     });
+
+    // Wenn es NICHT das Hauptchart ist, zeichne ein [X] oben rechts
+if (this.id !== 'main') {
+            ctx.save();
+            ctx.fillStyle = "rgba(255, 50, 50, 0.2)";
+            // Ein rotes Quadrat oben rechts im Pane
+            ctx.fillRect(ctx.canvas.width - 25, 5, 20, 20); 
+            
+            ctx.fillStyle = "#ff4444";
+            ctx.font = "bold 12px sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            // Das X genau in die Mitte des Quadrats zeichnen
+            ctx.fillText("X", ctx.canvas.width - 15, 15);
+            ctx.restore();
+        }
   }
 }

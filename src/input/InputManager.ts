@@ -27,6 +27,7 @@ export interface LogicalCoordinates {
  * Ein minimales Interface für Panes, damit der InputManager typsicher die Y-Achse abfragen kann.
  */
 export interface IPane {
+  id?: string;
   getId(): string;
   getTopOffset(): number;
   getPriceScale(): { yToPrice(y: number): number; priceToY(price: number): number };
@@ -294,14 +295,32 @@ export class InputManager {
         
         for (let i = 0; i < panes.length - 1; i++) {
             currentY += totalHeight * panes[i].heightWeight;
-            
             if (Math.abs(y - currentY) <= 4) {
                 this.isResizingPane = true;
                 this.resizeSplitterIndex = i;
                 this.startY = e.clientY;
                 this.canvas.style.cursor = 'row-resize';
-                return; // Stopp: Wir resizen jetzt, kein Panning!
+                return;
             }
+        }
+    }
+
+    // ==========================================
+    // NEU: KLICK AUF MÜLLEIMER (X) IM PANE
+    // ==========================================
+    const clickedPane = this.manager.getPaneAt(y);
+    if (clickedPane && clickedPane.id !== 'main') {
+        // Wir nehmen an, der Mülleimer ist 25 Pixel vom rechten Rand entfernt
+        // und zwischen 5 und 25 Pixel hoch (relativ zum Pane)
+        const paneTop = (clickedPane as any).top || 0; // Fallback, falls top nicht existiert
+        const relativeY = y - paneTop;
+        
+        if (x >= this.canvas.width - 25 && relativeY >= 5 && relativeY <= 25) {
+            // Mülleimer getroffen! API rufen und abbrechen
+            if ((window as any).zChart) {
+                (window as any).zChart.deletePane(clickedPane.id);
+            }
+            return; 
         }
     }
 

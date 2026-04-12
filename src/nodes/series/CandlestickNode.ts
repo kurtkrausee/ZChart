@@ -7,6 +7,8 @@ import { SceneNode } from '../core/SceneNode';
 import { DataStore } from '../../data/DataStore';
 
 export class CandlestickNode extends SceneNode {
+  public id:string ='main_Candles';
+  public name: string = 'Candles';
   public role = 'series';
   private dataStore: DataStore;
 
