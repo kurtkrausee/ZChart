@@ -2,54 +2,70 @@
 
 import type { TimeScale } from '../../math/TimeScale';
 import type { PriceScale } from '../../math/PriceScale';
-import type { CandleData } from '../../data/DataStore';
+import { DataStore } from '../../data/DataStore';
 import { SceneNode } from '../core/SceneNode';
 import type { ChartConfig } from '../../core/ChartOptions';
 
 export class AreaNode extends SceneNode {
     public role = 'series'; 
-    private data: CandleData[];
+    private dataStore: DataStore;
 
-    // Wir übergeben die Daten im Konstruktor (wie bei CandlestickNode den DataStore)
-    constructor(data: CandleData[]) {
+    // Perfekt: Wir übergeben den DataStore, damit Live-Ticks funktionieren!
+    constructor(dataStore: DataStore) {
         super();
-        this.data = data;
+        this.dataStore = dataStore;
     }
 
-    // Die Draw-Methode muss exakt die Signatur aus SceneNode matchen!
     public draw(
         ctx: CanvasRenderingContext2D, 
         timeScale: TimeScale, 
         priceScale: PriceScale, 
         options: ChartConfig
     ): void {
-        if (!this.isVisible || this.data.length === 0) return;
+        const totalCandles = this.dataStore.getAllData().length;
+        if (!this.isVisible || totalCandles === 0) return;
+
+        // Performance: Wir zeichnen NUR, was auf dem Bildschirm sichtbar ist
+        const { start, end } = timeScale.getVisibleRange(totalCandles);
+        const data = this.dataStore.getAllData();
+
+        if (start === end) return;
 
         ctx.save();
-        
         ctx.beginPath();
-        const startX = timeScale.indexToX(0);
-        const startY = priceScale.priceToY(this.data[0].close);
-        ctx.moveTo(startX, startY);
 
-        for (let i = 1; i < this.data.length; i++) {
+        let firstX = 0;
+        let lastX = 0;
+
+        // 1. Die Linie abfahren
+        for (let i = start; i <= end; i++) {
+            const candle = data[i];
+            if (!candle) continue;
+
             const x = timeScale.indexToX(i);
-            const y = priceScale.priceToY(this.data[i].close);
-            ctx.lineTo(x, y);
+            const y = priceScale.priceToY(candle.close);
+
+            if (i === start) {
+                ctx.moveTo(x, y);
+                firstX = x;
+            } else {
+                ctx.lineTo(x, y);
+            }
+            lastX = x;
         }
 
         ctx.strokeStyle = '#2962ff';
         ctx.lineWidth = 2;
         ctx.stroke();
 
-        const lastX = timeScale.indexToX(this.data.length - 1);
-        const bottomY = priceScale.priceToY(priceScale.visibleMin); 
-
+        // 2. Den Bereich nach unten schließen
+        const bottomY = priceScale.height; // Sicherer, um bis zum echten Boden zu füllen
         ctx.lineTo(lastX, bottomY);
-        ctx.lineTo(startX, bottomY);
+        ctx.lineTo(firstX, bottomY);
         ctx.closePath();
 
-        const gradient = ctx.createLinearGradient(0, priceScale.priceToY(priceScale.visibleMax), 0, bottomY);
+        // 3. Halbtransparenter Gradient
+        const gradient = ctx.createLinearGradient(0, 0, 0, bottomY);
         gradient.addColorStop(0, 'rgba(41, 98, 255, 0.4)');
         gradient.addColorStop(1, 'rgba(41, 98, 255, 0.0)');
         

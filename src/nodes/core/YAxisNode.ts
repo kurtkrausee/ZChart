@@ -13,7 +13,7 @@ export class YAxisNode {
     width: number,
     yOffset: number,
     options: ChartConfig,
-    paneId: string // Wir brauchen die ID, um den richtigen Formatter zu wählen
+    paneId: string
   ) {
     ctx.save();
     
@@ -41,22 +41,18 @@ export class YAxisNode {
     // 4. Raster & Labels zeichnen
     ctx.strokeStyle = options.colors.grid;
     ctx.lineWidth = options.grid.horizontalLines.lineWidth;
-
-    // Gestrichelte Linien für das Grid
     ctx.setLineDash([3, 3]);
 
-    // Wir zeichnen 5 Ticks pro Pane
     for (let i = 0; i <= 5; i++) {
       const y = (paneHeight / 5) * i;
       const price = priceScale.yToPrice(y);
 
-      // --- INTELLIGENTE FORMATIERUNG ---
       let formattedText: string;
       
       if (paneId === 'volume') {
         formattedText = formatKiloMega(price);
       } else if (paneId === 'rsi') {
-        formattedText = price.toFixed(0); // RSI braucht meist keine Nachkommastellen
+        formattedText = price.toFixed(0);
       } else {
         formattedText = formatPrice(price, 2);
       }
@@ -69,8 +65,19 @@ export class YAxisNode {
         ctx.stroke();
       }
 
-      // Preis-Label
-      ctx.fillText(formattedText, width - 5, yOffset + y);
+      // --- NEUE CLAMPING LOGIK (HIER KORRIGIERT) ---
+      let textY = y;
+      const padding = 12; // Puffer für die Texthöhe
+
+      // Wir prüfen, ob die relative Position 'y' zu nah am Rand der Pane ist
+      if (textY < padding) {
+        textY = padding; // Schiebt das oberste Label ein Stück nach unten
+      } else if (textY > paneHeight - padding) {
+        textY = paneHeight - padding; // Schiebt das unterste Label ein Stück nach oben
+      }
+
+      // WICHTIG: yOffset + textY verwenden, damit das Label in der richtigen Pane landet
+      ctx.fillText(formattedText, width - 5, yOffset + textY);
     }
     
     ctx.restore();

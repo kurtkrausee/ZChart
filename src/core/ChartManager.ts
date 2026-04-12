@@ -16,11 +16,11 @@ import { WatermarkNode } from '../nodes/core/WatermarkNode';
 
 export class ChartManager {
   private canvas: HTMLCanvasElement;
-  private ctx: CanvasRenderingContext2D;
+  public ctx: CanvasRenderingContext2D;
   private container: HTMLElement;
   private panes: Pane[] = [];
   private dpr: number = window.devicePixelRatio || 1;
-  private isAutoScaling: boolean = true;
+  public isAutoScaling: boolean = true;
   
   public options: ChartConfig;
 
@@ -346,18 +346,17 @@ export class ChartManager {
             (pane as any).top = currentY; 
 
             // ==========================================
-            // NEU: AUTO-SCALING LOGIK DIREKT HIER
+            // AUTO-SCALING LOGIK
             // ==========================================
             if (this.isAutoScaling) {
                 if (pane.id === 'main') {
-                    // Hauptchart skaliert nach Kerzen
-                    pane.priceScale.autoScale(visibleData);
+                    pane.priceScale.autoScale(visibleData, false); // Normaler Preis
                 } else if (pane.id.toLowerCase() === 'rsi') {
-                    // RSI ist immer fix von 0 bis 100
-                    pane.priceScale.setRange(0, 100);
+                    pane.priceScale.setRange(0, 100); // RSI ist fix
+                } else if (pane.id.toLowerCase() === 'volume') {
+                    pane.priceScale.autoScale(visibleData, true); // <--- HIER: isVolume = true!
                 } else {
-                    // Volumen und Co. skalieren sich auch selbst
-                    pane.priceScale.autoScale(visibleData);
+                    pane.priceScale.autoScale(visibleData, false);
                 }
             }
 

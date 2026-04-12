@@ -38,23 +38,30 @@ export class PriceScale {
   // ==========================================
   // AUTO-SCALING (Gegen flache Linien & leere Screens)
   // ==========================================
-  public autoScale(visibleData: any[]) {
+  public autoScale(visibleData: any[], isVolume: boolean = false) {
     if (visibleData.length === 0) return;
 
     let highest = -Infinity;
     let lowest = Infinity;
 
     for (const candle of visibleData) {
-        if (candle.high > highest) highest = candle.high;
-        if (candle.low < lowest) lowest = candle.low;
+        if (isVolume) {
+            // Beim Volumen interessiert uns nur das Volumen!
+            if (candle.volume > highest) highest = candle.volume;
+            lowest = 0; // Volumen fängt IMMER bei 0 an
+        } else {
+            // Beim Hauptchart checken wir die Preise
+            if (candle.high > highest) highest = candle.high;
+            if (candle.low < lowest) lowest = candle.low;
+        }
     }
 
-    // 10% Platz oben und unten lassen
     const padding = (highest - lowest) * 0.1;
 
     if (highest !== -Infinity && lowest !== Infinity) {
         this.maxPrice = highest + padding;
-        this.minPrice = lowest - padding;
+        // Beim Volumen darf das Minimum nicht durchs Padding ins Minus rutschen!
+        this.minPrice = isVolume ? 0 : lowest - padding;
     }
   }
 

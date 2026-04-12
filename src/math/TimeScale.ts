@@ -37,12 +37,16 @@ export class TimeScale {
   public formatLabel(timestamp: number): string {
     const date = new Date(timestamp);
     
-    // Professionelles Format: "12. Okt 26"
+    // Professionelle Formatierung mit Intl
     return new Intl.DateTimeFormat('de-DE', {
       day: '2-digit',
       month: 'short',
-      year: '2-digit'
-    }).format(date);
+      // Jahr nur anzeigen, wenn wir weit rausgezoomt sind (optional)
+      year: '2-digit', 
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    }).format(date).replace(',', ''); // Entfernt das Komma zwischen Datum und Uhrzeit
   }
 
   /**

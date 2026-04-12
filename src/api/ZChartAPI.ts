@@ -6,7 +6,10 @@ import { ImageNode } from '../nodes/tools/ImageNode';
 import { TextNode } from '../nodes/tools/TextNode';
 import { PenNode } from '../nodes/tools/PenNode';
 import { EmojiNode } from '../nodes/tools/EmojiNode';
-
+import { LineSeriesNode } from '../nodes/series/LineSeriesNode';
+import { CandlestickNode } from '../nodes/series/CandlestickNode';
+import { AreaNode } from '../nodes/series/AreaNode';
+import { OhlcBarNode } from '../nodes/series/OhlcBarNode';
 
 // --- Typ für das Event-System ---
 export type ZChartEventCallback = (data: any) => void;
@@ -485,5 +488,82 @@ export class ZChartAPI {
             .catch(err => {
                 console.error("Netzwerkfehler beim Laden von Binance:", err);
             });
+    }
+
+    /**
+     * Erstellt einen Screenshot vom Canvas und lädt ihn herunter
+     */
+    public takeScreenshot() {
+        // Wir holen uns das echte Canvas-Element
+        const canvas = this.manager.ctx.canvas;
+        const dataUrl = canvas.toDataURL('image/png');
+        
+        // Einen unsichtbaren Download-Link erstellen und klicken
+        const link = document.createElement('a');
+        link.download = `ZChart_${this.currentSymbol}.png`;
+        link.href = dataUrl;
+        link.click();
+    }
+
+    /**
+     * Springt ganz nach rechts zu den neuesten Kerzen und aktiviert Auto-Scale
+     */
+    public resetView() {
+        if (this.manager.timeScale && this.manager.dataStore) {
+            const dataCount = this.manager.dataStore.getAllData().length;
+            const candleWidth = this.manager.timeScale.candleWidth;
+            const chartWidth = this.manager.timeScale.width;
+
+            // Berechnung: Wir schieben den Chart so weit nach links, 
+            // dass das Ende des Daten-Arrays bündig mit der rechten Kante ist.
+            // Wir lassen 50px Platz (Padding) nach rechts.
+            this.manager.timeScale.scrollOffset = -(dataCount * candleWidth - chartWidth + 50);
+        }
+        
+        // Auto-Scale wieder anmachen
+        (this.manager as any).isAutoScaling = true; 
+        this.manager.render();
+    }
+
+    /**
+     * Wechselt den Haupt-Chart-Typ (Candles, Line, Area, OHLC)
+     */
+    public setChartType(type: 'candle' | 'line' | 'area' | 'ohlc') {
+        console.log(`[ZChart Engine] Wechsle Chart-Typ zu: ${type}`);
+        
+        const mainPane = (this.manager as any).panes.find((p: any) => p.id === 'main');
+        
+        if (mainPane) {
+            mainPane.nodes = mainPane.nodes.filter((n: any) => n.id !== 'main_candles');
+            
+            let newSeries: any;
+            
+            if (type === 'candle') {
+                newSeries = new CandlestickNode(this.manager.dataStore);
+                newSeries.name = 'Candlesticks';
+            } 
+            else if (type === 'line') {
+                newSeries = new LineSeriesNode(this.manager.dataStore, 'close', '#2962FF', 2);
+                newSeries.name = 'Line Chart';
+            } 
+            else if (type === 'area') {
+                // Deine eigene AreaNode aufrufen!
+                newSeries = new AreaNode(this.manager.dataStore);
+                newSeries.name = 'Area Chart';
+            }
+            else if (type === 'ohlc') {
+                // Deine eigene OhlcBarNode aufrufen!
+                newSeries = new OhlcBarNode(this.manager.dataStore);
+                newSeries.name = 'OHLC Bars';
+            }
+            
+            if (newSeries) {
+                newSeries.id = 'main_candles'; // ID bleibt zwingend gleich für das Layer Management
+                newSeries.zIndex = 10;
+                mainPane.addNode(newSeries);
+            }
+            
+            this.manager.render();
+        }
     }
 }

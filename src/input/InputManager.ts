@@ -52,6 +52,7 @@ interface IChartManager {
   emit(eventName: string, data: any): void; // Event-Emitter-Methode
   dataStore: any; // Damit der InputManager auf die Kerzen zugreifen kann
   isChartDirty: boolean; // Damit der InputManager den Manager zwingen kann, neu zu zeichnen
+  isAutoScaling: boolean; // Damit der InputManager weiß, ob er beim Zeichnen automatisch scrollen soll   
 }
 
 export class InputManager {
@@ -271,7 +272,7 @@ export class InputManager {
   private onMouseDown = (e: MouseEvent) => {
     const rect = this.canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top; // NEU: Y-Koordinate wird jetzt benötigt
+    const y = e.clientY - rect.top; // Y-Koordinate wird jetzt benötigt
   
         
     // Prüfen: Ist die Maus über der rechten Preisachse?
@@ -306,22 +307,34 @@ export class InputManager {
     }
 
     // ==========================================
-    // NEU: KLICK AUF MÜLLEIMER (X) IM PANE
+    // KLICK AUF MÜLLEIMER (X) IM PANE
     // ==========================================
-    const clickedPane = this.manager.getPaneAt(y);
-    if (clickedPane && clickedPane.id !== 'main') {
-        // Wir nehmen an, der Mülleimer ist 25 Pixel vom rechten Rand entfernt
-        // und zwischen 5 und 25 Pixel hoch (relativ zum Pane)
-        const paneTop = (clickedPane as any).top || 0; // Fallback, falls top nicht existiert
-        const relativeY = y - paneTop;
-        
-        // NEU: Klick-Zone ist jetzt links (x zwischen 10 und 30)
-        if (x >= 10 && x <= 30 && relativeY >= 10 && relativeY <= 30) {
-            if ((window as any).zChart) {
-                (window as any).zChart.deletePane(clickedPane.id);
+    const totalCanvasHeight = rect.height;
+    let currentPaneY = 0;
+
+    // Wir gehen alle Panes der Reihe nach von oben nach unten durch
+    for (const pane of (this.manager as any).panes) {
+        const panePixelHeight = totalCanvasHeight * pane.heightWeight;
+
+        // Liegt die Maus auf der Y-Achse innerhalb DIESES Panes?
+        if (y >= currentPaneY && y <= currentPaneY + panePixelHeight) {
+            
+            // Wenn es ein Sub-Pane ist (Volumen, RSI etc.)
+            if (pane.id !== 'main') {
+                const relativeY = y - currentPaneY;
+                
+                // Klick-Box prüfen: x zwischen 10 und 30, y zwischen 10 und 30 (relativ zum Pane)
+                if (x >= 10 && x <= 30 && relativeY >= 10 && relativeY <= 30) {
+                    // Volltreffer! Löschen und Klick sofort abbrechen
+                    if ((window as any).zChart) {
+                        (window as any).zChart.deletePane(pane.id);
+                    }
+                    return; 
+                }
             }
-            return; 
+            break; // Wir haben das Pane gefunden, in dem die Maus ist -> Schleife beenden
         }
+        currentPaneY += panePixelHeight;
     }
 
     // --- Logische Koordinaten beim Klick berechnen ---
@@ -559,7 +572,16 @@ export class InputManager {
     // ==========================================
     this.isDragging = true;
     this.startX = e.clientX;
+    this.startY = e.clientY; // <--- NEU: Y-Startpunkt merken
     this.startScrollOffset = this.timeScale.scrollOffset;
+
+    // NEU: Wir merken uns die Preise, die beim Klick-Start aktuell waren
+    if (targetPane) {
+        const pScale = targetPane.getPriceScale() as any;
+        (this as any).initialMin = pScale.minPrice;
+        (this as any).initialMax = pScale.maxPrice;
+    }
+
     this.canvas.style.cursor = 'grabbing';
   };
 
@@ -695,10 +717,33 @@ private onMouseMove = (e: MouseEvent) => {
         return; // WICHTIG: Damit wir nicht gleichzeitig pannen!
     }
 
-    // --- 4. PANNING (Verschieben des Charts) ---
-    if (this.isDragging && !this.activeDrawingNode) { // Nur pannen, wenn kein Objekt bewegt wird
+        // --- 4. PANNING (Verschieben des Charts X und Y) ---
+    if (this.isDragging && !this.activeDrawingNode) { 
+      // A. Horizontales Panning (Zeitachse)
       const deltaX = e.clientX - this.startX;
       this.timeScale.scrollOffset = this.startScrollOffset + deltaX;
+
+      // B. Vertikales Panning (Preisachse)
+      const deltaY = e.clientY - this.startY; // Differenz Mausbewegung
+      const targetPane = this.manager.getPaneAt(this.startY - this.canvas.getBoundingClientRect().top);
+
+      if (targetPane && Math.abs(deltaY) > 2) {
+          // Sobald der User den Chart vertikal zieht -> AUTO-SCALE AUSSCHALTEN!
+          (this.manager as any).isAutoScaling = false;
+
+          const priceScale = targetPane.getPriceScale() as any;
+          
+          // Wir berechnen: Wie viel "Preis" entspricht einem Pixel?
+          const priceRange = (this as any).initialMax - (this as any).initialMin;
+          const pricePerPixel = priceRange / priceScale.height;
+          const priceDelta = deltaY * pricePerPixel;
+
+          // Wir verschieben die Skala um die Mausdifferenz
+          priceScale.minPrice = (this as any).initialMin + priceDelta;
+          priceScale.maxPrice = (this as any).initialMax + priceDelta;
+      }
+      
+      this.manager.isChartDirty = true; // Neuzeichnen erzwingen
     }
 
     // --- 5. PRICE SCALING (Y-Achse ziehen) ---
@@ -748,7 +793,7 @@ private onMouseUp = () => {
     if (this.mode !== 'draw_trendline') { // Cursor nicht zurücksetzen, wenn wir noch zeichnen
         this.canvas.style.cursor = 'default';
     }
-    // NEU: Nach dem Loslassen einmal final den Chart neu zeichnen
+    // Nach dem Loslassen einmal final den Chart neu zeichnen
     this.manager.isChartDirty = true;
   };
 
@@ -829,7 +874,7 @@ private onMouseUp = () => {
   };
 
   // ==========================================
-  // MOBILE TOUCH LOGIK (Phase 15)
+  // MOBILE TOUCH LOGIK
   // ==========================================
 
   private onTouchStart = (e: TouchEvent) => {
