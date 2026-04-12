@@ -315,8 +315,8 @@ export class InputManager {
         const paneTop = (clickedPane as any).top || 0; // Fallback, falls top nicht existiert
         const relativeY = y - paneTop;
         
-        if (x >= this.canvas.width - 25 && relativeY >= 5 && relativeY <= 25) {
-            // Mülleimer getroffen! API rufen und abbrechen
+        // NEU: Klick-Zone ist jetzt links (x zwischen 10 und 30)
+        if (x >= 10 && x <= 30 && relativeY >= 10 && relativeY <= 30) {
             if ((window as any).zChart) {
                 (window as any).zChart.deletePane(clickedPane.id);
             }

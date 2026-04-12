@@ -23,6 +23,13 @@ export class DataStore {
     return this.data;
   }
 
+  // ==========================================
+  // NEU: Überschreibt die Daten komplett (für Binance/Ticker-Suche)
+  // ==========================================
+  public setData(newData: CandleData[]) {
+    this.data = newData;
+  }
+
   public getVisibleData(startIndex: number, endIndex: number): CandleData[] {
     const start = Math.max(0, Math.floor(startIndex));
     const end = Math.min(this.data.length - 1, Math.ceil(endIndex));
@@ -105,4 +112,4 @@ export class DataStore {
       
       return historicalData.length;
   }
-} 
+}

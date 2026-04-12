@@ -27,32 +27,47 @@ export class PriceScale {
     return this.minPrice + (1 - y / this.height) * range;
   }
 
-  /**
-   * Setzt die Range (wird für das Auto-Scaling genutzt)
-   */
   public setRange(min: number, max: number) {
     this.minPrice = min;
     this.maxPrice = max;
 
-    // Hier "merken" wir uns die Werte für die Nodes
     this.visibleMin = min;
     this.visibleMax = max;
   }
 
+  // ==========================================
+  // AUTO-SCALING (Gegen flache Linien & leere Screens)
+  // ==========================================
+  public autoScale(visibleData: any[]) {
+    if (visibleData.length === 0) return;
+
+    let highest = -Infinity;
+    let lowest = Infinity;
+
+    for (const candle of visibleData) {
+        if (candle.high > highest) highest = candle.high;
+        if (candle.low < lowest) lowest = candle.low;
+    }
+
+    // 10% Platz oben und unten lassen
+    const padding = (highest - lowest) * 0.1;
+
+    if (highest !== -Infinity && lowest !== Infinity) {
+        this.maxPrice = highest + padding;
+        this.minPrice = lowest - padding;
+    }
+  }
+
   /**
    * Zoomt/Staucht die Preisachse manuell
-   * deltaY > 0 (Maus runter): Stauchen (Bereich wird größer)
-   * deltaY < 0 (Maus hoch): Strecken (Bereich wird kleiner)
    */
   public zoom(deltaY: number) {
     const range = this.maxPrice - this.minPrice;
-    // Empfindlichkeit: 0.002 ist ein guter Startwert für weiches Stauchen
     const factor = deltaY * 0.002; 
     
     this.minPrice -= range * factor;
     this.maxPrice += range * factor;
 
-    // Sicherheit: Verhindern, dass der Chart "umklappt"
     if (this.minPrice >= this.maxPrice) {
       this.minPrice = this.maxPrice - 0.01;
     }

@@ -10,6 +10,10 @@ export class Pane {
   
   public id: string;
   public heightWeight: number;
+  
+  // NEU: Die Start-Koordinate (Y-Achse) dieses Panes. 
+  // Wird vom ChartManager beim Layouten berechnet.
+  public top: number = 0; 
 
   constructor(id: string, heightWeight: number) {
     this.id = id;
@@ -32,19 +36,23 @@ export class Pane {
     });
 
     // Wenn es NICHT das Hauptchart ist, zeichne ein [X] oben rechts
-if (this.id !== 'main') {
-            ctx.save();
-            ctx.fillStyle = "rgba(255, 50, 50, 0.2)";
-            // Ein rotes Quadrat oben rechts im Pane
-            ctx.fillRect(ctx.canvas.width - 25, 5, 20, 20); 
-            
-            ctx.fillStyle = "#ff4444";
-            ctx.font = "bold 12px sans-serif";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            // Das X genau in die Mitte des Quadrats zeichnen
-            ctx.fillText("X", ctx.canvas.width - 15, 15);
-            ctx.restore();
-        }
+    if (this.id !== 'main') {
+        ctx.save();
+        const buttonX = 10; // 10 Pixel vom LINKEN Rand
+        // WICHTIG: Da ChartManager 'translate' nutzt, ist 0 bereits ganz oben im Pane!
+        const buttonY = 10; 
+
+        // Quadrat-Hintergrund
+        ctx.fillStyle = "rgba(255, 68, 68, 0.1)";
+        ctx.fillRect(buttonX, buttonY, 20, 20); 
+        
+        // Das rote X
+        ctx.fillStyle = "#ff4444";
+        ctx.font = "bold 12px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("X", buttonX + 10, buttonY + 10);
+        ctx.restore();
+    }
   }
 }

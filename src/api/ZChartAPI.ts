@@ -285,21 +285,6 @@ export class ZChartAPI {
             return null; // Unbekannte Tools überspringen
         }).filter(item => item !== null); // Leere Einträge entfernen
     }
-
-    public setTheme(theme: 'light' | 'dark'): void {
-        if (theme === 'light') {
-            this.manager.options.colors.background = '#ffffff';
-            this.manager.options.colors.text = '#333333';
-            this.manager.options.colors.axisLine = '#e0e0e0';
-            this.manager.options.colors.grid = '#f0f0f0';
-        } else {
-            this.manager.options.colors.background = '#131722';
-            this.manager.options.colors.text = '#d1d4dc';
-            this.manager.options.colors.axisLine = '#363c4e';
-            this.manager.options.colors.grid = '#2a2e39';
-        }
-        this.manager.render();
-    }
     
     /**
      * Setzt das Hintergrund-Wasserzeichen (z.B. "BTC/USDT 1H").
@@ -387,29 +372,118 @@ export class ZChartAPI {
 
         const index = panes.findIndex((p: any) => p.id === id);
         if (index > -1) {
-            panes.splice(index, 1); // Pane aus dem Array werfen
+            // WICHTIG: Rette das Gewicht des gelöschten Panes!
+            const deletedWeight = panes[index].heightWeight; 
+            panes.splice(index, 1); 
             
-            // WICHTIG: Wenn ein Pane verschwindet, muss der Canvas seine
-            // Höhen neu berechnen (das mainPane wird dadurch wieder größer!)
+            // Finde das Hauptchart und gib ihm das freigewordene Gewicht
+            const mainPane = panes.find((p: any) => p.id === 'main');
+            if (mainPane) {
+                mainPane.heightWeight += deletedWeight;
+            }
+            
             if (typeof (this.manager as any).resize === 'function') {
-                (this.manager as any).resize();
+                (this.manager as any).resize(); // Das zwingt den Canvas, die Höhen neu zu berechnen!
             } else {
                 this.manager.render();
             }
-            
-            // React benachrichtigen, dass sich die Liste geändert hat!
             this.emit('paneDeleted', id); 
         }
     }
 
-    public setTimeframe(tf: string) {
-        console.log(`[ZChart Engine] Zeiteinheit gewechselt auf: ${tf}`);
-        // Hier schreibst du später die Logik rein, die neue Kerzen vom Server lädt
+    /**
+     * Umschalten zwischen Hell und Dunkel
+     */
+    public setTheme(theme: 'light' | 'dark'): void {
+        const colors = this.manager.options.colors;
+        if (theme === 'light') {
+            colors.background = '#ffffff';
+            colors.text = '#1e293b';
+            colors.grid = '#f1f5f9';
+            colors.axisLine = '#e2e8f0';
+            colors.crosshair = '#94a3b8';
+        } else {
+            colors.background = '#131722';
+            colors.text = '#d1d4dc';
+            colors.grid = '#2a2e39';
+            colors.axisLine = '#363c4e';
+            colors.crosshair = '#787b86';
+        }
+        this.manager.render();
     }
 
+    // --- State für die API ---
+    private currentSymbol: string = 'BTCUSDT';
+    private currentTimeframe: string = '1d';
+
+    /**
+     * Wird von der TickerSearch in React aufgerufen
+     */
     public loadSymbol(symbol: string) {
-        console.log(`[ZChart Engine] Lade neuen Chart für: ${symbol}`);
-        // Hier schreibst du später die Logik rein, die neue Kerzen vom Server lädt
-        this.setWatermark(symbol); // Zeigt das neue Symbol direkt im Hintergrund an!
+        this.currentSymbol = symbol.toUpperCase();
+        this.fetchBinanceData();
+    }
+
+    /**
+     * Wird von den Timeframe-Buttons (1m, 1H, 1D etc.) in React aufgerufen
+     */
+    public setTimeframe(tf: string) {
+        // Binance API braucht spezifische Kürzel (z.B. '1h' statt '1H')
+        const intervalMap: Record<string, string> = {
+            '1m': '1m', '5m': '5m', '1H': '1h', '4H': '4h', '1D': '1d'
+        };
+        
+        this.currentTimeframe = intervalMap[tf] || '1d';
+        this.fetchBinanceData();
+    }
+
+    /**
+     * Zentrale Methode, die die Daten von Binance holt und die Engine updatet
+     */
+    private fetchBinanceData() {
+        this.setWatermark(this.currentSymbol);
+
+        // API Call mit dem aktuellen Symbol und der ausgewählten Zeiteinheit
+        const url = `https://api.binance.com/api/v3/klines?symbol=${this.currentSymbol}&interval=${this.currentTimeframe}&limit=500`;
+
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                // Wenn Binance einen Fehler wirft (z.B. Symbol existiert nicht)
+                if (data.code) {
+                    alert(`Binance Fehler: ${data.msg}`);
+                    return;
+                }
+
+                const newCandles = data.map((d: any) => ({
+                    timestamp: d[0],
+                    open: parseFloat(d[1]),
+                    high: parseFloat(d[2]),
+                    low: parseFloat(d[3]),
+                    close: parseFloat(d[4]),
+                    volume: parseFloat(d[5])
+                }));
+
+                // Daten in die Engine pumpen
+                if (this.manager.dataStore) {
+                    this.manager.dataStore.setData(newCandles);
+                    this.manager.dataStore.calculateRSI(14); 
+                }
+
+                // Scrollposition zurücksetzen
+                if (this.manager.timeScale) {
+                    this.manager.timeScale.scrollOffset = 0; 
+                }
+
+                // Layout neu berechnen lassen (wichtig für Auto-Scale!)
+                if (typeof (this.manager as any).calculateLayout === 'function') {
+                    (this.manager as any).calculateLayout();
+                }
+                
+                this.manager.render();
+            })
+            .catch(err => {
+                console.error("Netzwerkfehler beim Laden von Binance:", err);
+            });
     }
 }

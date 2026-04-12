@@ -12,15 +12,14 @@ export class CrosshairNode {
     height: number,
     timeScale: TimeScale,
     getPaneAtY: (y: number) => { pane: any; localY: number } | null,
-    options: ChartConfig
+    options: ChartConfig,
+    dataArray: any[] // Wir brauchen die Daten für das Datum!
   ) {
     const { x, y } = mousePos;
     const axisWidth = options.layout.axisWidth;
 
     // --- SNAPPING LOGIK ---
-    // indexToX gibt die linke Kante. + candleWidth / 2 schiebt uns exakt in die Mitte!
     const index = timeScale.xToIndex(x);
-    
     const snappedX = timeScale.indexToX(index);
 
     ctx.save();
@@ -44,7 +43,7 @@ export class CrosshairNode {
       ctx.stroke();
     }
 
-    // --- LABELS (TAGS) ---
+    // --- LABELS ---
     ctx.setLineDash([]); 
     ctx.font = '12px Arial';
     ctx.textAlign = 'center';
@@ -59,8 +58,18 @@ export class CrosshairNode {
       this.drawLabel(ctx, priceText, chartContentWidth + axisWidth / 2, y, axisWidth, 20);
     }
 
-    // Zeit-Label unten
-    const timeText = `Tag ${index}`;
+    // ==========================================
+    // Zeit-Label unten (Echtes Datum)
+    // ==========================================
+    const timestamp = timeScale.indexToTime(index, dataArray);
+    let timeText = "-";
+    if (timestamp) {
+        // Formatiert zu z.B. "14. Okt 26" (Setzt voraus, dass formatLabel in TimeScale existiert)
+        timeText = timeScale.formatLabel ? timeScale.formatLabel(timestamp) : new Date(timestamp).toLocaleDateString();
+    } else {
+        timeText = `Index ${index}`; // Fallback für leeren Raum
+    }
+
     const textWidth = ctx.measureText(timeText).width + 12;
     this.drawLabel(ctx, timeText, snappedX, height - 10, textWidth, 20);
 

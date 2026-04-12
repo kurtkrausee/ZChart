@@ -312,51 +312,57 @@ export class ChartManager {
 
     // ==========================================
     // LAYER 1: CACHE ERSTELLEN (Nur wenn isChartDirty = true)
-    // Alles hier wird auf das unsichtbare bgCtx gezeichnet!
     // ==========================================
     if (this.isChartDirty) {
-        // 1. Hintergrund
         this.bgCtx.fillStyle = this.options.colors.background;
         this.bgCtx.fillRect(0, 0, width, height);
 
         this.timeScale.width = chartContentWidth;
 
-        // 2. Sichtbarer Bereich berechnen
         const totalDataCount = this.dataStore.getAllData().length;
         const { start, end } = this.timeScale.getVisibleRange(totalDataCount);
         const visibleData = this.dataStore.getVisibleData(start, end);
 
-        // ==========================================
-        // NEU: INFINITE SCROLL TRIGGER
-        // ==========================================
-        // Wenn wir weniger als 50 Kerzen vom linken Rand entfernt sind und nicht schon laden
+        // Infinite Scroll Trigger
         if (start < 50 && !this.isLoadingHistory && totalDataCount > 0) {
             this.isLoadingHistory = true;
             const oldestCandle = this.dataStore.getAllData()[0];
-            
-            // Event an dein React-Frontend feuern
             this.emit('loadMoreHistoricalData', { 
                 oldestTime: oldestCandle ? oldestCandle.timestamp : null 
             });
         }
 
-        // 3. Grid zeichnen (Ausgelagert!)
+        // Grid zeichnen
         this.gridNode.draw(this.bgCtx, chartContentWidth, height, this.timeScale, this.options, start, end);
 
         let currentY = 0;
 
-        // 4. Panes rendern
+        // Panes rendern
         this.panes.forEach(pane => {
             const paneHeight = height * pane.heightWeight;
             pane.priceScale.height = paneHeight;
+            
+            // Pane 'top' setzen für das [X] Icon!
+            (pane as any).top = currentY; 
+
+            // ==========================================
+            // NEU: AUTO-SCALING LOGIK DIREKT HIER
+            // ==========================================
+            if (this.isAutoScaling) {
+                if (pane.id === 'main') {
+                    // Hauptchart skaliert nach Kerzen
+                    pane.priceScale.autoScale(visibleData);
+                } else if (pane.id.toLowerCase() === 'rsi') {
+                    // RSI ist immer fix von 0 bis 100
+                    pane.priceScale.setRange(0, 100);
+                } else {
+                    // Volumen und Co. skalieren sich auch selbst
+                    pane.priceScale.autoScale(visibleData);
+                }
+            }
 
             this.yAxisNode.draw(this.bgCtx, paneHeight, pane.priceScale, width, currentY, this.options, pane.id);
             
-            // AutoScaling via Engine (Ausgelagert!)
-            if (this.isAutoScaling) {
-                this.autoScaleEngine.scalePane(pane, visibleData);
-            }
-
             this.bgCtx.save();
             this.bgCtx.beginPath();
             this.bgCtx.rect(0, currentY, chartContentWidth, paneHeight);
@@ -365,13 +371,8 @@ export class ChartManager {
 
             pane.draw(this.bgCtx, this.timeScale, this.options);
 
-            // Watermark im Hintergrund der Main-Pane zeichnen
             if (pane.id === 'main') {
                 this.watermarkNode.draw(this.bgCtx, this.timeScale, pane.priceScale, this.options);
-            }
-
-            // Den DrawingManager alle Shapes zeichnen lassen
-            if (pane.id === 'main') {
                 this.drawingManager.draw(this.bgCtx, this.timeScale, pane.priceScale, this.options);
             }
 
@@ -382,35 +383,35 @@ export class ChartManager {
             currentY += paneHeight;
         });
 
-        // 5. X-Achse
+        // X-Achse
         this.xAxisNode.draw(this.bgCtx, chartContentWidth, height, this.timeScale, this.options, this.dataStore.getAllData());
 
-        // Foto ist fertig! Erst wieder neu zeichnen, wenn sich Daten/Skalen ändern.
         this.isChartDirty = false;
     }
 
     // ==========================================
-    // LAYER 2: DAS FOTO AUF DEN BILDSCHIRM STEMPELN
+    // LAYER 2: BILD AUF BILDSCHIRM
     // ==========================================
-    // Hier kopieren wir das fertige bgCanvas auf unser echtes ctx
     this.ctx.drawImage(this.bgCanvas, 0, 0, width, height);
 
-
     // ==========================================
-    // LAYER 3: DYNAMISCHE ELEMENTE (Fadenkreuz)
-    // Wird IMMER (60x pro Sekunde) auf das echte ctx gezeichnet
+    // LAYER 3: FADENKREUZ (Jetzt MIT dataArray!)
     // ==========================================
     const mode = this.inputManager?.mode || 'crosshair_and_pan';
     const isDrawing = mode.startsWith('draw_');
     const isPanning = mode === 'crosshair_and_pan';
     
-    // Crosshair NUR zeichnen, wenn wir im Pan-Modus sind ODER wenn ein Zeichenwerkzeug aktiv ist, 
-    // ABER NICHT, wenn wir gerade ein Objekt verschieben (isDraggingPoint)
     if (this.mousePos && (isDrawing || isPanning)) {
       this.crosshairNode.draw(
-        this.ctx, this.mousePos, chartContentWidth, height, 
-        this.timeScale, (y) => this.getPaneAt(y), this.options
+        this.ctx, 
+        this.mousePos, 
+        chartContentWidth, 
+        height, 
+        this.timeScale, 
+        (y) => this.getPaneAt(y), 
+        this.options,
+        this.dataStore.getAllData() // <--- NEU: Daten für das Datumslayout
       );
     }
-  }
+}
 }

@@ -30,6 +30,21 @@ export class TimeScale {
   return { start, end };
  }
 
+ /**
+   * Wandelt einen Zeitstempel in ein lesbares Format um.
+   * Erkennt automatisch, ob Jahr/Monat/Tag angezeigt werden muss.
+   */
+  public formatLabel(timestamp: number): string {
+    const date = new Date(timestamp);
+    
+    // Professionelles Format: "12. Okt 26"
+    return new Intl.DateTimeFormat('de-DE', {
+      day: '2-digit',
+      month: 'short',
+      year: '2-digit'
+    }).format(date);
+  }
+
   /**
    * Export: Wandelt einen Index in einen echten Zeitstempel um (für die Datenbank)
    */
