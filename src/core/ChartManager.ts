@@ -18,7 +18,7 @@ export class ChartManager {
   private canvas: HTMLCanvasElement;
   public ctx: CanvasRenderingContext2D;
   private container: HTMLElement;
-  private panes: Pane[] = [];
+  public panes: Pane[] = [];
   private dpr: number = window.devicePixelRatio || 1;
   public isAutoScaling: boolean = true;
   

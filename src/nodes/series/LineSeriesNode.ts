@@ -7,6 +7,12 @@ import type { ChartConfig } from '../../core/ChartOptions';
 
 export class LineSeriesNode extends SceneNode {
   public role = 'series';
+
+  // NEU: Diese Eigenschaften werden vom Object Tree und der API genutzt
+  public id: string = '';
+  public name: string = '';
+  public zIndex: number = 0;
+  public isVisible: boolean = true;
   
   private dataStore: any;
   private dataKey: string;

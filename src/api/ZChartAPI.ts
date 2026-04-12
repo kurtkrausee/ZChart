@@ -10,6 +10,8 @@ import { LineSeriesNode } from '../nodes/series/LineSeriesNode';
 import { CandlestickNode } from '../nodes/series/CandlestickNode';
 import { AreaNode } from '../nodes/series/AreaNode';
 import { OhlcBarNode } from '../nodes/series/OhlcBarNode';
+import { calculateSMA } from '../math/indicators/SMA';
+import { IndicatorRegistry, IndicatorConfig } from '../core/IndicatorRegistry';
 
 // --- Typ für das Event-System ---
 export type ZChartEventCallback = (data: any) => void;
@@ -564,6 +566,38 @@ export class ZChartAPI {
             }
             
             this.manager.render();
+        }
+    }
+
+    /**
+     * UNIVERSAL-METHODE FÜR ALLE INDIKATOREN
+     */
+    public addIndicator(config: IndicatorConfig) {
+        // 1. Mathe berechnen (über die Registry, API muss die Math-Dateien nicht importieren!)
+        IndicatorRegistry.calculate(config.type, this.manager.dataStore, config);
+
+        // 2. Ziel-Pane finden (Main oder Sub-Pane)
+        let targetPane = this.manager.panes.find(p => p.id === config.paneId);
+        
+        // (Falls es z.B. ein RSI ist und das Pane noch nicht existiert, wird es hier dynamisch erstellt)
+
+        // 3. Linie zeichnen
+        if (targetPane) {
+            // Wir nutzen die bestehende LineSeriesNode für die optische Darstellung
+            const lineNode = new LineSeriesNode(
+                this.manager.dataStore, 
+                config.id, // Der Key, unter dem die Registry das Ergebnis gespeichert hat
+                config.styles.color, 
+                config.styles.lineWidth
+            );
+            lineNode.id = `indicator_${config.id}`;
+            lineNode.name = `${config.type.toUpperCase()} (${config.inputs.period})`;
+            lineNode.zIndex = 5;
+            
+            targetPane.addNode(lineNode);
+            this.manager.render();
+            
+            this.emit('indicatorAdded', config); // Gibt die Config an React zurück!
         }
     }
 }

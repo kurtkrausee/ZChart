@@ -35,3 +35,23 @@ export type { CandleData } from './data/DataStore';
 export type { ChartConfig, DeepPartial } from './core/ChartOptions';
 export type { InputMode } from './input/InputManager'; // WICHTIG für React UI Buttons
 export { defaultOptions, mergeOptions } from './core/ChartOptions';
+
+export interface IndicatorConfig {
+    id: string;               // Eindeutige ID (z.B. "sma_20_close")
+    type: string;             // Der Typ (z.B. "sma", "rsi", "macd")
+    paneId: string;           // Wo soll er hin? ('main' oder neues Sub-Pane)
+    
+    // Mathematische Parameter
+    inputs: {
+        period?: number;      // z.B. 14, 20, 50
+        source?: 'open' | 'high' | 'low' | 'close'; // Basis für die Berechnung
+        multiplier?: number;  // Für Bollinger Bänder etc.
+    };
+    
+    // Optische Parameter
+    styles: {
+        color: string;        // Linienfarbe
+        lineWidth: number;    // Dicke
+        lineStyle?: 'solid' | 'dashed'; // Art der Linie
+    };
+}
