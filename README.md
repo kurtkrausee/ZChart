@@ -1,4 +1,4 @@
-# ZChart Pro
+# ZChart
 
 <img align="right" width="500" src="https://github.com/user-attachments/assets/eaddfe90-3f2d-4b8b-9ed1-d6c7c095b8cd" alt="ZChart Pro Dashboard">
 
