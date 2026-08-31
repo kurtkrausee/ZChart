@@ -1,14 +1,20 @@
+// Version: 2.0.0 | Updated: 2026-08-18 | By: Agent
 import { defineConfig } from 'vite';
+import { resolve } from 'node:path';
 
 export default defineConfig({
   build: {
-    emptyOutDir: true,
     lib: {
-      // Vite versteht relative Pfade mittlerweile von ganz allein!
-      entry: 'src/index.ts', 
-      name: 'zchart',
-      fileName: 'index',
-      formats: ['es']
-    }
-  }
+      entry: resolve(__dirname, 'src/index.ts'),
+      name: 'ZChart',
+      fileName: 'zchart',
+      formats: ['es'],
+    },
+    sourcemap: true,
+  },
+  test: {
+    environment: 'node',
+    globals: true,
+    include: ['src/**/*.test.ts'],
+  },
 });
