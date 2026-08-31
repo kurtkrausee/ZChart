@@ -115,3 +115,4 @@ Nachportierungen Dashboard ↔ Core/Pro später manuell je Bedarf (workflow.md �
 | 2026-08-18 | ZC-P4 | fd74136 | nodes/ portiert (core komplett, 8 Serien, 19 Tools + FiboNode, 8 Indikatoren), utils/timeFormat ersetzt Dashboard-timezone. **Verify: tsc 0 Fehler, 121/121 Tests** |
 | 2026-08-18 | ZC-P5 | e445d2f | api/ (Fassade + 4 Controller + Serialization + Registries mit Basis-Defs), themes/ dark+light (Fallback tvDefault→darkPro), src/index.ts Public-Barrel, Lib-Build ES+d.ts. **Verify: tsc 0, 184/184 Tests, Build 359 kB** |
 | 2026-08-18 | ZC-P6 | s. git log | index.html + demo/main.ts (deterministische Daten, Toolbar/Theme/Snapshot), README v2, v1-Doku → docs/legacy/. **Verify: tsc 0 inkl. demo, vite-dev-Smoke 200** |
+| 2026-08-18 | ZC-P7 | 82ddbdd (main) | Release: PR #1 dev→main gemerged, Tag v2.0.0 + GitHub-Release, CHANGELOG 2.0.0. npm publish bewusst offen (Paketname/Scope-Entscheidung User, Paket noch private:true) |
