@@ -1,6 +1,6 @@
 # ZChart Core / Pro — Destillation aus dem Dashboard
 
-**Version:** 2.1.0 | **Aktualisiert:** 2026-08-18 | **Status:** 🟡 in Umsetzung (ZC-P2 fertig, als Nächstes ZC-P3 Input)
+**Version:** 2.2.0 | **Aktualisiert:** 2026-08-18 | **Status:** 🟡 ZC-P1–P7 fertig (Core released) — als Nächstes ZP-P1 (Pro)
 
 > Ziel: Die Chart-Engine aus `react-app/src/zchart/` als eigenständiges Paket **ZChart Core** (frei, MIT, Repo [kurtkrausee/ZChart](https://github.com/kurtkrausee/ZChart)) und darauf aufbauend **ZChart Pro** (kommerziell, privates Repo `kurtkrausee/zchart-pro`) bereitstellen, so dass Dritte sie per npm einbinden können.
 >
@@ -111,3 +111,7 @@ Nachportierungen Dashboard ↔ Core/Pro später manuell je Bedarf (workflow.md �
 | 2026-08-18 | Plan | 399a8260 (Dashboard) | **Modellwechsel** (User): eigenständige Projekte, Dashboard = Nur-Lese-Vorlage, NICHTS im Dashboard ändern (P0/P1 gestrichen); Phasen neu als ZC-P1–P7 + ZP-P1–P4; workflow.md v2 |
 | 2026-08-18 | ZC-P1 | e07a468 + s.u. | v1 gesichert: 15 uncommittete Dateien committet, Tag `v1-legacy`, gepusht. Doku-Umzug Dashboard → Core-Repo `docs/`. Neues Gerüst: package.json (2.0.0-dev, MIT), strict tsconfig + tsconfig.build (Declarations), Vite Library-Mode, Vitest (node-env), CHANGELOG, SYNC_LOG; altes `src/` entfernt |
 | 2026-08-18 | ZC-P2 | s. git log | Fundament portiert (Dashboard-Stand 399a8260): core/, math/, data/DataStore, types/, utils/, calc-Basis (momentum/movingAverages/trend/volatility/volume), 4 Basis-Nodes (SceneNode, StaticLineNode, BaseIndicatorNode, LineSeriesNode) — 35 Dateien, ~9.000 Zeilen. DataStore ohne die 20 Pro-Delegates (897 statt 1064 Z.). **Verify:** 101/101 Tests grün, tsc: 0 Fehler außer 7× TS2307 (Module aus ZC-P3/P4) |
+| 2026-08-18 | ZC-P3 | s. git log | input/ portiert: InputManager 1927→1546 Z. (Pro-Branches raus), tools/-Registry auf 22 Core-Modi, handlers/cursor 1:1. Verify: gemeinsam mit P4 |
+| 2026-08-18 | ZC-P4 | fd74136 | nodes/ portiert (core komplett, 8 Serien, 19 Tools + FiboNode, 8 Indikatoren), utils/timeFormat ersetzt Dashboard-timezone. **Verify: tsc 0 Fehler, 121/121 Tests** |
+| 2026-08-18 | ZC-P5 | e445d2f | api/ (Fassade + 4 Controller + Serialization + Registries mit Basis-Defs), themes/ dark+light (Fallback tvDefault→darkPro), src/index.ts Public-Barrel, Lib-Build ES+d.ts. **Verify: tsc 0, 184/184 Tests, Build 359 kB** |
+| 2026-08-18 | ZC-P6 | s. git log | index.html + demo/main.ts (deterministische Daten, Toolbar/Theme/Snapshot), README v2, v1-Doku → docs/legacy/. **Verify: tsc 0 inkl. demo, vite-dev-Smoke 200** |
