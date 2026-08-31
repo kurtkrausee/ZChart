@@ -1,4 +1,4 @@
-// PriceScale.ts
+// src/math/PriceScale.ts
 
 export class PriceScale {
   public height: number = 0;
@@ -6,31 +6,43 @@ export class PriceScale {
   public maxPrice: number = 100;
   public visibleMin: number = 0;
   public visibleMax: number = 100;
+  
+  // Interaktive Steuerung
+  public isAutoScaled: boolean = true;
+  public zoom: number = 1; // 1 = Normal, 0.5 = Rausgezoomt, 2 = Eingezoomt
+  public scrollOffset: number = 0; // Für das vertikale Verschieben
 
   /**
-   * Wandelt einen Preis (z.B. 54000.50) in einen Y-Pixelwert um
+   * Wandelt einen Preis in einen Y-Pixelwert um (Berücksichtigt Stauchung!)
    */
   public priceToY(price: number): number {
-    const range = this.maxPrice - this.minPrice;
+    const range = (this.maxPrice - this.minPrice) / this.zoom;
     if (range === 0) return 0;
     
-    // Y=0 ist oben im Canvas
-    return this.height - ((price - this.minPrice) / range) * this.height;
+    // Zentrum finden und Range mit Zoom anpassen
+    const center = (this.maxPrice + this.minPrice) / 2 + this.scrollOffset;
+    const newMin = center - range / 2;
+    const newMax = center + range / 2;
+    
+    return this.height - ((price - newMin) / (newMax - newMin)) * this.height;
   }
 
   /**
-   * Für Mouse-Interaktion: Pixel zu Preis
+   * Für Mouse-Interaktion: Pixel zurück zu Preis
    */
   public yToPrice(y: number): number {
-    const range = this.maxPrice - this.minPrice;
+    const range = (this.maxPrice - this.minPrice) / this.zoom;
     if (this.height === 0) return 0;
-    return this.minPrice + (1 - y / this.height) * range;
+    
+    const center = (this.maxPrice + this.minPrice) / 2 + this.scrollOffset;
+    const newMin = center - range / 2;
+    
+    return newMin + (1 - y / this.height) * range;
   }
 
   public setRange(min: number, max: number) {
     this.minPrice = min;
     this.maxPrice = max;
-
     this.visibleMin = min;
     this.visibleMax = max;
   }
@@ -46,11 +58,9 @@ export class PriceScale {
 
     for (const candle of visibleData) {
         if (isVolume) {
-            // Beim Volumen interessiert uns nur das Volumen!
             if (candle.volume > highest) highest = candle.volume;
-            lowest = 0; // Volumen fängt IMMER bei 0 an
+            lowest = 0; 
         } else {
-            // Beim Hauptchart checken wir die Preise
             if (candle.high > highest) highest = candle.high;
             if (candle.low < lowest) lowest = candle.low;
         }
@@ -60,23 +70,7 @@ export class PriceScale {
 
     if (highest !== -Infinity && lowest !== Infinity) {
         this.maxPrice = highest + padding;
-        // Beim Volumen darf das Minimum nicht durchs Padding ins Minus rutschen!
         this.minPrice = isVolume ? 0 : lowest - padding;
-    }
-  }
-
-  /**
-   * Zoomt/Staucht die Preisachse manuell
-   */
-  public zoom(deltaY: number) {
-    const range = this.maxPrice - this.minPrice;
-    const factor = deltaY * 0.002; 
-    
-    this.minPrice -= range * factor;
-    this.maxPrice += range * factor;
-
-    if (this.minPrice >= this.maxPrice) {
-      this.minPrice = this.maxPrice - 0.01;
     }
   }
 }

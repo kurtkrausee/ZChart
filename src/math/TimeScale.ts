@@ -71,4 +71,11 @@ export class TimeScale {
     // Fallback: Wenn exakte Zeit nicht gefunden wird (z.B. Wochenende), nimm das Ende
     return index !== -1 ? index : dataArray.length - 1; 
   }
+
+  /**
+   * Gibt die Breite einer Kerze/eines Balkens zurück
+   */
+  public getBarWidth(): number {
+    return this.candleWidth;
+  }
 }

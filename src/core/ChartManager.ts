@@ -14,6 +14,7 @@ import { AutoScaleEngine } from '../math/AutoScaleEngine';
 import { DrawingManager } from './DrawingManager';
 import { WatermarkNode } from '../nodes/core/WatermarkNode';
 
+
 export class ChartManager {
   private canvas: HTMLCanvasElement;
   public ctx: CanvasRenderingContext2D;
@@ -79,6 +80,94 @@ export class ChartManager {
     this.startRenderLoop();
 
     this.inputManager = new InputManager(this.canvas, this.timeScale, this);
+
+    // Y-ACHSE STAUCHEN / STRECKEN (Mit dem Scrollrad)
+        this.canvas.addEventListener('wheel', (e) => {
+            const rect = this.canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const chartContentWidth = rect.width - this.options.layout.axisWidth;
+
+            if (x > chartContentWidth) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const paneInfo = this.getPaneAt(y);
+                if (paneInfo) {
+                    const priceScale = paneInfo.getPriceScale();
+                    priceScale.isAutoScaled = false; 
+                    const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+                    priceScale.zoom *= zoomFactor;
+                    this.isChartDirty = true; // <--- HIER GEÄNDERT
+                }
+            }
+        });
+
+        // AUTO-SCALE ZURÜCKSETZEN (Mit Doppelklick auf die Y-Achse)
+        this.canvas.addEventListener('dblclick', (e) => {
+            const rect = this.canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const chartContentWidth = rect.width - this.options.layout.axisWidth;
+
+            if (x > chartContentWidth) {
+                const paneInfo = this.getPaneAt(y);
+                if (paneInfo) {
+                    const priceScale = paneInfo.getPriceScale();
+                    priceScale.isAutoScaled = true;
+                    priceScale.zoom = 1;
+                    priceScale.scrollOffset = 0;
+                    this.isChartDirty = true; // <--- HIER GEÄNDERT
+                }
+            }
+        });
+
+        // ==========================================
+        // Y-ACHSE DRAG & DROP (Verschieben nach oben/unten)
+        // ==========================================
+        let isDraggingY = false;
+        let draggedPane: ReturnType<ChartManager['getPaneAt']> = null;
+        let lastMouseY = 0;
+
+        this.canvas.addEventListener('mousedown', (e) => {
+            const rect = this.canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const chartContentWidth = rect.width - this.options.layout.axisWidth;
+
+            // Hat der User AUF die Y-Achse geklickt?
+            if (x > chartContentWidth) {
+                isDraggingY = true;
+                draggedPane = this.getPaneAt(y);
+                lastMouseY = y;
+                
+                if (draggedPane) {
+                    draggedPane.getPriceScale().isAutoScaled = false; // Auto-Scale aus!
+                }
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (isDraggingY && draggedPane) {
+                const deltaY = e.clientY - lastMouseY;
+                lastMouseY = e.clientY;
+
+                // Wie viel Preis entspricht ein Pixel?
+                const scale = draggedPane.getPriceScale();
+                const priceRange = (scale.maxPrice - scale.minPrice) / scale.zoom;
+                const pricePerPixel = priceRange / scale.height;
+
+                // Verschiebe den Scroll-Offset exakt um die Mausbewegung
+                scale.scrollOffset += deltaY * pricePerPixel;
+                
+                this.isChartDirty = true;
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDraggingY = false;
+            draggedPane = null;
+        });
   }
 
   /**
@@ -105,16 +194,70 @@ export class ChartManager {
     this.panes.push(pane);
   }
 
+  /**
+   * Löscht ein Pane (z.B. RSI oder MACD) aus dem Chart
+   */
+  public removePane(paneId: string) {
+    if (paneId === 'main') return;
+
+    // 1. Finde das Gewicht des zu löschenden Panes
+    const removedPane = this.panes.find(p => p.id === paneId);
+    if (!removedPane) return;
+    const removedWeight = removedPane.heightWeight;
+
+    // 2. Pane entfernen
+    this.panes = this.panes.filter(p => p.id !== paneId);
+
+    // 3. Gewichte neu verteilen
+    // Wir berechnen, wie viel Prozent die verbleibenden Panes zusammen hatten
+    const remainingTotalWeight = 1.0 - removedWeight;
+
+    if (remainingTotalWeight > 0) {
+        this.panes.forEach(pane => {
+            // Jedes Pane wird proportional vergrößert
+            pane.heightWeight = pane.heightWeight / remainingTotalWeight;
+        });
+    }
+
+    this.isChartDirty = true;
+    this.render(); // Sofort neu zeichnen
+}
+
   public setMousePos(x: number | null, y: number | null) {
     this.mousePos = (x === null || y === null) ? null : { x, y };
   }
 
-  public zoomPrice(deltaY: number) {
+  public zoomPrice(deltaY: number, paneId?: string | null) {
     this.isChartDirty = true;
-    const mainPane = this.panes.find(p => p.id === 'main');
-    if (mainPane) {
-      this.isAutoScaling = false; 
-      mainPane.priceScale.zoom(deltaY);
+    
+    // Welches Fenster soll gestaucht werden?
+    const targetId = paneId || 'main';
+    const targetPane = this.panes.find(p => p.id === targetId);
+    
+    if (targetPane) {
+      targetPane.priceScale.isAutoScaled = false; 
+      
+      // ==========================================
+      // DIE MAGIE: EXPONENTIELLES ZOOMEN
+      // ==========================================
+      // Faktor 0.002 bestimmt die Empfindlichkeit (kleiner = langsamer/weicher)
+      // Math.exp macht den Zoom butterweich und verhindert, dass er jemals <= 0 wird!
+      // Drag nach unten (deltaY > 0) -> Multiplikator wird z.B. 0.98 (Stauchen)
+      // Drag nach oben (deltaY < 0) -> Multiplikator wird z.B. 1.02 (Strecken)
+      const zoomMultiplier = Math.exp(-deltaY * 0.002);
+      
+      targetPane.priceScale.zoom *= zoomMultiplier;
+
+      // ==========================================
+      // HARD-LIMITS GEGEN "VERSCHWINDEN"
+      // ==========================================
+      // Wir begrenzen den Zoom auf vernünftige Werte (1% bis 10000%)
+      if (targetPane.priceScale.zoom < 0.01) {
+          targetPane.priceScale.zoom = 0.01;
+      }
+      if (targetPane.priceScale.zoom > 100) {
+          targetPane.priceScale.zoom = 100;
+      }
     }
   }
 
@@ -297,18 +440,30 @@ export class ChartManager {
   }
 
   public destroy() {
-      if (this.animationFrameId !== null) {
-          cancelAnimationFrame(this.animationFrameId); 
-          this.animationFrameId = null;
-      }
-      // Hier können später auch Event-Listener (Mouse, Resize) entfernt werden
-  }
+    // Falls du eine renderLoop hast, stoppe sie hier z.B. mit cancelAnimationFrame
+    
+    // NEU: Zerstöre alle Window-Listener des InputManagers!
+    if (this.inputManager) {
+        this.inputManager.destroy();
+    }
+
+    // Leere das Canvas
+    if (this.container && this.canvas.parentNode) {
+        this.container.removeChild(this.canvas);
+    }
+}
 
   public render() {
     const rect = this.canvas.getBoundingClientRect();
     const width = rect.width;
     const height = rect.height;
+    // NEU: Schutzschild gegen den ResizeObserver/Canvas Crash!
+    if (width <= 0 || height <= 0) return;
+
     const chartContentWidth = width - this.options.layout.axisWidth;
+    // NEU: Wir reservieren 30 Pixel für die X-Achse ganz unten!
+    const timeScaleHeight = 30; 
+    const usableHeight = height - timeScaleHeight;
 
     // ==========================================
     // LAYER 1: CACHE ERSTELLEN (Nur wenn isChartDirty = true)
@@ -339,7 +494,7 @@ export class ChartManager {
 
         // Panes rendern
         this.panes.forEach(pane => {
-            const paneHeight = height * pane.heightWeight;
+            const paneHeight = usableHeight * pane.heightWeight;
             pane.priceScale.height = paneHeight;
             
             // Pane 'top' setzen für das [X] Icon!
@@ -348,15 +503,17 @@ export class ChartManager {
             // ==========================================
             // AUTO-SCALING LOGIK
             // ==========================================
-            if (this.isAutoScaling) {
+            if (this.isAutoScaling && pane.priceScale.isAutoScaled) {
                 if (pane.id === 'main') {
-                    pane.priceScale.autoScale(visibleData, false); // Normaler Preis
-                } else if (pane.id.toLowerCase() === 'rsi') {
-                    pane.priceScale.setRange(0, 100); // RSI ist fix
-                } else if (pane.id.toLowerCase() === 'volume') {
-                    pane.priceScale.autoScale(visibleData, true); // <--- HIER: isVolume = true!
+                    pane.priceScale.autoScale(visibleData, false); // Normaler Preis (bestehende Logik)
+                } else if (pane.id.toLowerCase().startsWith('rsi')) {
+                    pane.priceScale.setRange(-5, 105); // RSI ist fix
+                } else if (pane.id.toLowerCase().startsWith('volume')) {
+                    pane.priceScale.autoScale(visibleData, true); // Volumen (bestehende Logik)
                 } else {
-                    pane.priceScale.autoScale(visibleData, false);
+                    // NEU: Für MACD und alle zukünftigen Indikatoren rufen wir die intelligente Engine auf
+                    const engine = new AutoScaleEngine();
+                    engine.scalePane(pane, visibleData, start, end);
                 }
             }
 

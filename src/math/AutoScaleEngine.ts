@@ -7,22 +7,18 @@ export class AutoScaleEngine {
   /**
    * Berechnet die Min/Max Werte der PriceScale basierend auf den sichtbaren Daten.
    */
-  public scalePane(pane: Pane, visibleData: any[]) {
+  public scalePane(pane: Pane, visibleData: any[], startIndex: number, endIndex: number) {
     if (visibleData.length === 0) return;
 
-    switch (pane.id) {
-      case 'main':
-        this.scaleMainChart(pane, visibleData);
-        break;
-      case 'rsi':
-        this.scaleRSI(pane);
-        break;
-      case 'volume':
-        this.scaleVolume(pane, visibleData);
-        break;
-      default:
-        this.scaleDynamic(pane, visibleData);
-        break;
+    if (pane.id === 'main') {
+      this.scaleMainChart(pane, visibleData);
+    } else if (pane.id.startsWith('rsi')) {
+      this.scaleRSI(pane);
+    } else if (pane.id.startsWith('volume')) {
+      this.scaleVolume(pane, visibleData);
+    } else {
+      // Das ist der neue, universelle Weg für MACD und alle anderen!
+      this.scaleDynamic(pane, startIndex, endIndex);
     }
   }
 
@@ -51,36 +47,33 @@ export class AutoScaleEngine {
   }
 
   /**
-   * Generischer Hook für alle unbekannten/eigenen Indikatoren.
-   * Sucht in den Daten automatisch nach dem Schlüssel, der der pane.id entspricht.
+   * Generischer Hook: Fragt alle Nodes im Pane nach ihren Min/Max-Werten!
    */
-  private scaleDynamic(pane: Pane, visibleData: any[]) {
+  private scaleDynamic(pane: Pane, startIndex: number, endIndex: number) {
     let min = Infinity; 
     let max = -Infinity;
-    const dataKey = pane.id; // z.B. 'macd', 'atr', 'momentum'
 
-    for (const candle of visibleData) {
-      // Wir greifen dynamisch auf den Wert zu (z.B. candle['macd'])
-      const value = candle[dataKey]; 
-      
-      if (value !== undefined && value !== null) {
-        if (value > max) max = value;
-        if (value < min) min = value;
-      }
-    }
+    // Wir fragen jedes Node (jede Linie, jedes Histogramm) in diesem Fenster
+    pane.nodes.forEach((node: any) => {
+        // Hat das Node die neue getMinMax Methode?
+        if (typeof node.getMinMax === 'function') {
+            const bounds = node.getMinMax(startIndex, endIndex);
+            if (bounds) {
+                if (bounds.min < min) min = bounds.min;
+                if (bounds.max > max) max = bounds.max;
+            }
+        }
+    });
 
-    // Wenn wir gültige Daten gefunden haben, skalieren wir
     if (min !== Infinity && max !== -Infinity) {
-      // Wenn min und max exakt gleich sind (z.B. flache Linie), brauchen wir künstliches Padding
       if (min === max) {
           pane.priceScale.setRange(min - 1, max + 1);
           return;
       }
-      
-      const padding = (max - min) * 0.1; // 10% Luft oben und unten
+      const padding = (max - min) * 0.20;
       pane.priceScale.setRange(min - padding, max + padding);
     } else {
-      // Fallback, falls die Daten (noch) nicht da sind
+      // Fallback
       pane.priceScale.setRange(0, 100);
     }
   }

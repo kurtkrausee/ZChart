@@ -1,5 +1,6 @@
 {
-  "compilerOptions": {
+  "compileOnSave": false,  /* <--- DAS HIER EINFÜGEN */
+    "compilerOptions": {
     /* --- Basis-Umgebung --- */
     "target": "es2023",
     "module": "esnext",

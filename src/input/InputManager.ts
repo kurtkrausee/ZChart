@@ -9,6 +9,7 @@ import { EmojiNode } from '../nodes/tools/EmojiNode';
 import { TextNode } from '../nodes/tools/TextNode';
 import { PenNode } from '../nodes/tools/PenNode';
 import { ImageNode } from '../nodes/tools/ImageNode';
+import { HorizontalLineNode } from '../nodes/tools/HorizontalLineNode';
 
 
 
@@ -30,11 +31,11 @@ export interface IPane {
   id?: string;
   getId(): string;
   getTopOffset(): number;
-  getPriceScale(): { yToPrice(y: number): number; priceToY(price: number): number };
+  getPriceScale(): { yToPrice(y: number): number; priceToY(price: number): number; isAutoScaled: boolean; zoom: number; minPrice: number; maxPrice: number; height: number; scrollOffset: number };
 }
 
 // --- Werkzeug-Modi ---
-export type InputMode = 'crosshair_and_pan' | 'draw_trendline' | 'draw_fibo' | 'draw_emoji' | 'draw_text' | 'draw_pen'   ;
+export type InputMode = 'crosshair_and_pan' | 'draw_trendline' | 'draw_fibo' | 'draw_emoji' | 'draw_text' | 'draw_pen' | 'draw_horizontal_line';
 
 
 /**
@@ -44,7 +45,7 @@ export type InputMode = 'crosshair_and_pan' | 'draw_trendline' | 'draw_fibo' | '
 interface IChartManager {
   options: ChartConfig;
   drawingManager: DrawingManager; // Zugriff auf alle Zeichnungen
-  zoomPrice(deltaY: number): void;
+  zoomPrice(deltaY: number, paneId?: string | null): void;
   setMousePos(x: number | null, y: number | null): void;
   // Der Manager muss uns sagen können, welche Pane an Pixel-Y liegt
   getPaneAt(pixelY: number): IPane | null;
@@ -75,6 +76,7 @@ export class InputManager {
 
   // Status-Variablen für das Y-Scaling (Preisachse stauchen)
   private isScalingY: boolean = false;
+  private scalingPaneId: string | null = null;
   private startY: number = 0;
 
   // Status-Variablen für Pane Resizing (Phase 15)
@@ -102,29 +104,49 @@ export class InputManager {
     
   }
 
+  private onMouseLeave = () => {
+      this.manager.setMousePos(null, null);
+      
+      // Nur neu zeichnen, wenn wir vorher im Chart waren (spart Performance)
+      if (this.lastMouseX !== -1) {
+          this.lastMouseX = -1;
+          this.manager.isChartDirty = true;
+      }
+  };
+
+
   private attachListeners() {
-    // Maus-Events für Klicks und Ziehen
     this.canvas.addEventListener('mousedown', this.onMouseDown);
     window.addEventListener('mousemove', this.onMouseMove);
     window.addEventListener('mouseup', this.onMouseUp);
 
-    // Zooming via Mausrad
     this.canvas.addEventListener('wheel', this.onWheel, { passive: false });
-
-    // Wenn die Maus das Canvas verlässt, setzen wir das Fadenkreuz im Manager auf null
-    this.canvas.addEventListener('mouseleave', () => this.manager.setMousePos(null, null));
+    this.canvas.addEventListener('mouseleave', this.onMouseLeave); // Anonyme Funktion entfernt!
     window.addEventListener('paste', this.onPaste); 
-    this.manager.isChartDirty = true; 
 
-    // ==========================================
-    // MOBILE TOUCH EVENTS
-    // ==========================================
-    // passive: false ist GANZ wichtig, damit wir e.preventDefault() rufen können!
     this.canvas.addEventListener('touchstart', this.onTouchStart, { passive: false });
     this.canvas.addEventListener('touchmove', this.onTouchMove, { passive: false });
     this.canvas.addEventListener('touchend', this.onTouchEnd);
     this.canvas.addEventListener('touchcancel', this.onTouchEnd);
-}
+  }
+
+  // ==========================================
+  // NEU: DIE CLEANUP METHODE (Killt die Zombies)
+  // ==========================================
+  public destroy() {
+    this.canvas.removeEventListener('mousedown', this.onMouseDown);
+    window.removeEventListener('mousemove', this.onMouseMove);
+    window.removeEventListener('mouseup', this.onMouseUp);
+
+    this.canvas.removeEventListener('wheel', this.onWheel);
+    this.canvas.removeEventListener('mouseleave', this.onMouseLeave);
+    window.removeEventListener('paste', this.onPaste);
+
+    this.canvas.removeEventListener('touchstart', this.onTouchStart);
+    this.canvas.removeEventListener('touchmove', this.onTouchMove);
+    this.canvas.removeEventListener('touchend', this.onTouchEnd);
+    this.canvas.removeEventListener('touchcancel', this.onTouchEnd);
+  }
 
   // ==========================================
   // COPY & PASTE
@@ -274,16 +296,20 @@ export class InputManager {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top; // Y-Koordinate wird jetzt benötigt
   
-        
-    // Prüfen: Ist die Maus über der rechten Preisachse?
-    // Wir nutzen hier die options direkt vom manager
+    // ==========================================
+    // KLICK AUF DIE PREISACHSE (Rechts)
+    // ==========================================
     const isOverYAxis = x > (rect.width - this.manager.options.layout.axisWidth);
     if (isOverYAxis) {
-      // Modus: Preisachse stauchen
-      this.isScalingY = true;
-      this.startY = e.clientY;
-      this.canvas.style.cursor = 'ns-resize';
-      return;
+        // Modus: Preisachse stauchen
+        this.isScalingY = true;
+        this.startY = e.clientY;
+
+        const targetPaneInfo = this.manager.getPaneAt(y);
+        this.scalingPaneId = targetPaneInfo ? targetPaneInfo.getId() : 'main';
+
+        this.canvas.style.cursor = 'ns-resize';
+        return; // Klick abbrechen, da wir skalieren wollen
     } 
 
     // ==========================================
@@ -296,7 +322,7 @@ export class InputManager {
         
         for (let i = 0; i < panes.length - 1; i++) {
             currentY += totalHeight * panes[i].heightWeight;
-            if (Math.abs(y - currentY) <= 4) {
+            if (Math.abs(y - currentY) <= 4) { // 4 Pixel Toleranz für den Klick
                 this.isResizingPane = true;
                 this.resizeSplitterIndex = i;
                 this.startY = e.clientY;
@@ -312,281 +338,274 @@ export class InputManager {
     const totalCanvasHeight = rect.height;
     let currentPaneY = 0;
 
-    // Wir gehen alle Panes der Reihe nach von oben nach unten durch
     for (const pane of (this.manager as any).panes) {
         const panePixelHeight = totalCanvasHeight * pane.heightWeight;
 
-        // Liegt die Maus auf der Y-Achse innerhalb DIESES Panes?
         if (y >= currentPaneY && y <= currentPaneY + panePixelHeight) {
-            
-            // Wenn es ein Sub-Pane ist (Volumen, RSI etc.)
             if (pane.id !== 'main') {
                 const relativeY = y - currentPaneY;
                 
-                // Klick-Box prüfen: x zwischen 10 und 30, y zwischen 10 und 30 (relativ zum Pane)
+                // Klick-Box prüfen: (x: 10-30, y: 10-30)
                 if (x >= 10 && x <= 30 && relativeY >= 10 && relativeY <= 30) {
-                    // Volltreffer! Löschen und Klick sofort abbrechen
-                    if ((window as any).zChart) {
-                        (window as any).zChart.deletePane(pane.id);
+                    
+                    // NEU: Wir befehlen unserem LOKALEN Manager, das Pane zu löschen!
+                    if (typeof (this.manager as any).removePane === 'function') {
+                        (this.manager as any).removePane(pane.id);
                     }
+                    
                     return; 
                 }
             }
-            break; // Wir haben das Pane gefunden, in dem die Maus ist -> Schleife beenden
+            break;
         }
         currentPaneY += panePixelHeight;
     }
 
-    // --- Logische Koordinaten beim Klick berechnen ---
+    // ==========================================
+    // LOGISCHE KOORDINATEN & PANE ERMITTELN
+    // ==========================================
     const logicalCoords = this.getLogicalCoordinates(x, y);
-    if (!logicalCoords || logicalCoords.paneId !== 'main') return;
-
-    const targetPane = this.manager.getPaneAt(y);
-    const priceScale = targetPane?.getPriceScale() as any;
+    const targetPaneInfo = this.manager.getPaneAt(y);
+    const priceScale = targetPaneInfo ? targetPaneInfo.getPriceScale() as any : null;
 
     // ==========================================
-    // STANDARD (Auswählen & Modifizieren)
+    // ZEICHNUNGEN & HIT-TESTS (NUR IM MAIN-CHART!)
     // ==========================================
-    if (this.mode === 'crosshair_and_pan') {
+    // WICHTIG: Wir blockieren hier NICHT mehr mit "return", wenn wir im RSI sind!
+    // Wir betreten diesen Block einfach nur dann, wenn wir im Hauptchart sind.
+    if (logicalCoords && priceScale) { 
 
-        // 1. Prüfen: Haben wir einen Ankerpunkt von einer SELEKTIERTEN Linie getroffen?
-        for (const shape of this.manager.drawingManager.shapes) {
-            if (shape.isSelected) {
-                const anchorHit = shape.hitTestAnchor(x, y, this.timeScale, priceScale);
-                if (anchorHit) {
-                    this.isDraggingPoint = true;
-                    this.draggedPointIndex = anchorHit;
-                    this.activeDrawingNode = shape;
-                    return; 
+        // STANDARD (Auswählen & Modifizieren von bestehenden Zeichnungen)
+        if (this.mode === 'crosshair_and_pan') {
+
+            // 1. Prüfen: Ankerpunkt einer selektierten Linie getroffen?
+            for (const shape of this.manager.drawingManager.shapes) {
+                if (shape.isSelected) {
+                    const anchorHit = shape.hitTestAnchor(x, y, this.timeScale, priceScale);
+                    if (anchorHit) {
+                        this.isDraggingPoint = true;
+                        this.draggedPointIndex = anchorHit;
+                        this.activeDrawingNode = shape;
+                        return; // Panning stoppen, wir ziehen einen Punkt!
+                    }
                 }
             }
-        }
 
-        // 2. Prüfen: Haben wir eine Linie getroffen? (Rückwärts-Schleife wegen Z-Index)
-        let hitFound = false;
-        const shapes = this.manager.drawingManager.shapes;
-        for (let i = shapes.length - 1; i >= 0; i--) {
-            const shape = shapes[i];
-            if (!hitFound && shape.hitTest(x, y, this.timeScale, priceScale)) {
-                shape.isSelected = !shape.isSelected;
-                hitFound = true;
-            } else {
-                shape.isSelected = false; // Alle anderen deselektieren
-            }
-        }
-        
-        if (hitFound) return; 
-        
-        this.manager.drawingManager.deselectAll();
-    }
-
-    // ==========================================
-    // MODUS: ZEICHNEN (Neue Trendlinie)
-    // ==========================================
-    else if (this.mode === 'draw_trendline') {
-        if (this.drawStep === 0) {
-            // Linie erstellen und in den Manager pushen
-            const newLine = new TrendLineNode();
-            
-            // Punkt 1 und Punkt 2 initial auf die gleiche Koordinate setzen (für Vorschau)
-            newLine.point1 = { index: logicalCoords.index, price: logicalCoords.price };
-            newLine.point2 = { index: logicalCoords.index, price: logicalCoords.price }; 
-            
-            this.manager.drawingManager.shapes.push(newLine);
-            
-            this.activeDrawingNode = newLine;
-            this.drawStep = 1;
-            
-            // OPTIONAL: Event "Zeichnen gestartet" feuern, falls die UI reagieren soll
-            // this.manager.emit('drawingStarted', newLine); 
-            
-            return;
-        } else if (this.drawStep === 1 && this.activeDrawingNode) {
-            // Endpunkt setzen und Modus automatisch beenden
-            this.activeDrawingNode.point2 = { index: logicalCoords.index, price: logicalCoords.price };
-            this.activeDrawingNode.isSelected = true; // Neu gezeichnete Linie direkt markieren
-            
-
-            // Wir feuern das Event, BEVOR wir die Referenz auf null setzen.
-            // Die Web-App erhält so das fertige Objekt inklusive seiner neuen ID.
-            this.manager.emit('drawingCreated', {
-                id: this.activeDrawingNode.id,
-                type: 'trendline',
-                data: {
-                    point1: this.activeDrawingNode.point1,
-                    point2: this.activeDrawingNode.point2
-                }
-            });
-
-            // ==========================================
-            // NEU: HIER RUFEN WIR DIE REACT UI AN!
-            // ==========================================
-            if ((window as any).zChart) {
-                (window as any).zChart.emit('drawingAdded');
-            }
-
-            this.drawStep = 0; 
-            this.activeDrawingNode = null;
-            this.mode = 'crosshair_and_pan'; 
-            
-            this.manager.setMousePos(x, y); 
-            return;
-        }
-
-    }
-    
-    // ==========================================
-    // MODUS: ZEICHNEN (Neues Fibonacci)
-    // ==========================================
-    else if (this.mode === 'draw_fibo') {
-        if (this.drawStep === 0) {
-            const newFibo = new FiboNode();
-            
-            newFibo.point1 = { index: logicalCoords.index, price: logicalCoords.price };
-            newFibo.point2 = { index: logicalCoords.index, price: logicalCoords.price }; 
-            
-            this.manager.drawingManager.shapes.push(newFibo);
-            
-            this.activeDrawingNode = newFibo; // FiboNode muss in activeDrawingNode passen!
-            this.drawStep = 1;
-            return;
-        } else if (this.drawStep === 1 && this.activeDrawingNode) {
-            this.activeDrawingNode.point2 = { index: logicalCoords.index, price: logicalCoords.price };
-            this.activeDrawingNode.isSelected = true; 
-            
-            // Event feuern (Dirty Check)
-            this.manager.emit('drawingCreated', {
-                id: this.activeDrawingNode.id,
-                type: 'fibRetracement',
-                data: {
-                    point1: this.activeDrawingNode.point1,
-                    point2: this.activeDrawingNode.point2
-                }
-            });
-
-            // ==========================================
-            // NEU: HIER RUFEN WIR DIE REACT UI AN!
-            // ==========================================
-            if ((window as any).zChart) {
-                (window as any).zChart.emit('drawingAdded');
-            }
-
-            this.drawStep = 0; 
-            this.activeDrawingNode = null;
-            this.mode = 'crosshair_and_pan'; 
-            this.manager.setMousePos(x, y); 
-            return;
-        }
-    }
-
-    // ==========================================
-    // MODUS: ZEICHNEN (Neuer Text)
-    // ==========================================
-    else if (this.mode === 'draw_text') {
-        if (this.drawStep === 0) {
-            // 1. Die neue Node erstellen und direkt im Chart platzieren
-            const newTextNode = new TextNode();
-            newTextNode.point1 = { index: logicalCoords.index, price: logicalCoords.price };
-            
-            // Vorübergehend "unsichtbar" machen oder leeren Text setzen
-            this.manager.drawingManager.shapes.push(newTextNode);
-            
-            // 2. Das temporäre HTML-Eingabefeld erstellen
-            const inputEl = document.createElement('input');
-            inputEl.type = 'text';
-            inputEl.style.position = 'absolute';
-            // Wir platzieren es exakt da, wo der User geklickt hat (mit ein bisschen Offset)
-            inputEl.style.left = `${e.clientX}px`;
-            inputEl.style.top = `${e.clientY - 10}px`; 
-            inputEl.style.zIndex = '1000'; // Sicherstellen, dass es GANZ vorne ist
-            inputEl.style.fontSize = '16px';
-            inputEl.style.background = 'transparent';
-            inputEl.style.color = '#2962FF'; // Eine schöne blaue Farbe für die Eingabe
-            inputEl.style.border = '1px dashed #2962FF';
-            inputEl.style.outline = 'none';
-            
-            // Das Input-Feld in den Body hängen und fokussieren
-            document.body.appendChild(inputEl);
-            inputEl.focus();
-
-            // 3. Warten, bis der User "Enter" drückt oder woanders hinklickt (Blur)
-            const finishTextEntry = () => {
-                const finalValue = inputEl.value;
-                if (finalValue.trim() !== '') {
-                    // Text in unsere Node übertragen
-                    newTextNode.text = finalValue;
-                    newTextNode.isSelected = true;
-
-                    // API benachrichtigen (Dirty Check für Server-Speicherung)
-                    this.manager.emit('drawingCreated', {
-                        id: newTextNode.id,
-                        type: 'text',
-                        data: {
-                            point1: newTextNode.point1,
-                            text: finalValue
-                        }
-                    });
+            // 2. Prüfen: Linie selbst getroffen? (Rückwärts wegen Z-Index)
+            let hitFound = false;
+            const shapes = this.manager.drawingManager.shapes;
+            for (let i = shapes.length - 1; i >= 0; i--) {
+                const shape = shapes[i];
+                if (!hitFound && shape.hitTest(x, y, this.timeScale, priceScale)) {
+                    shape.isSelected = !shape.isSelected;
+                    hitFound = true;
                 } else {
-                    // Wenn der Text leer war, löschen wir die Node einfach wieder
-                    this.manager.drawingManager.removeDrawing(newTextNode.id);
+                    shape.isSelected = false; // Alle anderen deselektieren
                 }
+            }
+            
+            if (hitFound) return; // Panning stoppen, wir haben eine Linie angeklickt
+            
+            this.manager.drawingManager.deselectAll();
+        }
 
-                // Aufräumen: HTML-Element löschen & Modus zurücksetzen
-                if (inputEl.parentNode) {
-                    inputEl.parentNode.removeChild(inputEl);
-                }
-                this.mode = 'crosshair_and_pan';
-                (this.manager as any).requestRedraw();
-            };
+        // MODUS: ZEICHNEN (Neue Trendlinie)
+        else if (this.mode === 'draw_trendline') {
+            if (this.drawStep === 0) {
+                const newLine = new TrendLineNode();
+                newLine.point1 = { index: logicalCoords.index, price: logicalCoords.price };
+                newLine.point2 = { index: logicalCoords.index, price: logicalCoords.price }; 
+                
+                this.manager.drawingManager.shapes.push(newLine);
+                this.activeDrawingNode = newLine;
+                this.drawStep = 1;
+                return;
+            } else if (this.drawStep === 1 && this.activeDrawingNode) {
+                this.activeDrawingNode.point2 = { index: logicalCoords.index, price: logicalCoords.price };
+                this.activeDrawingNode.isSelected = true; 
 
-            // Event-Listener an das Input-Feld hängen
-            inputEl.addEventListener('blur', finishTextEntry);
-            inputEl.addEventListener('keydown', (ev) => {
-                if (ev.key === 'Enter') finishTextEntry();
-                if (ev.key === 'Escape') {
-                    inputEl.value = ''; // Bei Esc löschen wir den Text
-                    finishTextEntry();
-                }
+                this.manager.emit('drawingCreated', {
+                    id: this.activeDrawingNode.id,
+                    type: 'trendline',
+                    data: {
+                        point1: this.activeDrawingNode.point1,
+                        point2: this.activeDrawingNode.point2
+                    }
+                });
+
+                if ((window as any).zChart) (window as any).zChart.emit('drawingAdded');
+
+                this.drawStep = 0; 
+                this.activeDrawingNode = null;
+                this.mode = 'crosshair_and_pan'; 
+                this.manager.setMousePos(x, y); 
+                return;
+            }
+        }
+
+        // MODUS: ZEICHNEN (Neue Horizontale Linie)
+        else if (this.mode === 'draw_horizontal_line') {
+            const hLine = new HorizontalLineNode();
+            hLine.price = logicalCoords.price;
+            hLine.isSelected = true;
+
+            this.manager.drawingManager.shapes.push(hLine);
+
+            this.manager.emit('drawingCreated', {
+                id: hLine.id,
+                type: 'horizontal_line',
+                data: { price: hLine.price }
             });
 
-            this.drawStep = 0; // Wir bleiben bei 0, das HTML-Feld macht den Rest
+            // Nach dem Klick sofort zurück in den normalen Maus-Modus wechseln
+            this.mode = 'crosshair_and_pan'; 
+            this.manager.setMousePos(x, y);
+            this.manager.isChartDirty = true;
+            return;
+        }
+        
+        // MODUS: ZEICHNEN (Neues Fibonacci)
+        else if (this.mode === 'draw_fibo') {
+            if (this.drawStep === 0) {
+                const newFibo = new FiboNode();
+                newFibo.point1 = { index: logicalCoords.index, price: logicalCoords.price };
+                newFibo.point2 = { index: logicalCoords.index, price: logicalCoords.price }; 
+                
+                this.manager.drawingManager.shapes.push(newFibo);
+                this.activeDrawingNode = newFibo;
+                this.drawStep = 1;
+                return;
+            } else if (this.drawStep === 1 && this.activeDrawingNode) {
+                this.activeDrawingNode.point2 = { index: logicalCoords.index, price: logicalCoords.price };
+                this.activeDrawingNode.isSelected = true; 
+                
+                this.manager.emit('drawingCreated', {
+                    id: this.activeDrawingNode.id,
+                    type: 'fibRetracement',
+                    data: {
+                        point1: this.activeDrawingNode.point1,
+                        point2: this.activeDrawingNode.point2
+                    }
+                });
+
+                if ((window as any).zChart) (window as any).zChart.emit('drawingAdded');
+
+                this.drawStep = 0; 
+                this.activeDrawingNode = null;
+                this.mode = 'crosshair_and_pan'; 
+                this.manager.setMousePos(x, y); 
+                return;
+            }
+        }
+
+        // MODUS: ZEICHNEN (Neuer Text)
+        else if (this.mode === 'draw_text') {
+            if (this.drawStep === 0) {
+                const newTextNode = new TextNode();
+                newTextNode.point1 = { index: logicalCoords.index, price: logicalCoords.price };
+                this.manager.drawingManager.shapes.push(newTextNode);
+                
+                const inputEl = document.createElement('input');
+                inputEl.type = 'text';
+                inputEl.style.position = 'absolute';
+                inputEl.style.left = `${e.clientX}px`;
+                inputEl.style.top = `${e.clientY - 10}px`; 
+                inputEl.style.zIndex = '1000';
+                inputEl.style.fontSize = '16px';
+                inputEl.style.background = 'transparent';
+                inputEl.style.color = '#2962FF';
+                inputEl.style.border = '1px dashed #2962FF';
+                inputEl.style.outline = 'none';
+                
+                document.body.appendChild(inputEl);
+                inputEl.focus();
+
+                const finishTextEntry = () => {
+                    const finalValue = inputEl.value;
+                    if (finalValue.trim() !== '') {
+                        newTextNode.text = finalValue;
+                        newTextNode.isSelected = true;
+
+                        this.manager.emit('drawingCreated', {
+                            id: newTextNode.id,
+                            type: 'text',
+                            data: {
+                                point1: newTextNode.point1,
+                                text: finalValue
+                            }
+                        });
+                    } else {
+                        this.manager.drawingManager.removeDrawing(newTextNode.id);
+                    }
+
+                    if (inputEl.parentNode) inputEl.parentNode.removeChild(inputEl);
+                    
+                    this.mode = 'crosshair_and_pan';
+                    (this.manager as any).requestRedraw();
+                };
+
+                inputEl.addEventListener('blur', finishTextEntry);
+                inputEl.addEventListener('keydown', (ev) => {
+                    if (ev.key === 'Enter') finishTextEntry();
+                    if (ev.key === 'Escape') {
+                        inputEl.value = ''; 
+                        finishTextEntry();
+                    }
+                });
+
+                this.drawStep = 0; 
+                return;
+            }
+        }
+
+        // MODUS: ZEICHNEN (Neuer Stift)
+        else if (this.mode === 'draw_pen') {
+            const newPen = new PenNode();
+            newPen.points.push({ index: logicalCoords.index, price: logicalCoords.price });
+            
+            this.manager.drawingManager.shapes.push(newPen);
+            this.activeDrawingNode = newPen;
+            this.isDragging = true; 
             return;
         }
     }
 
     // ==========================================
-    // MODUS: ZEICHNEN (Neuer Stift)
+    // DEFAULT: PANNING (Globale Verschiebung!)
     // ==========================================
-    else if (this.mode === 'draw_pen') {
-        const newPen = new PenNode();
-        newPen.points.push({ index: logicalCoords.index, price: logicalCoords.price });
-        
-        this.manager.drawingManager.shapes.push(newPen);
-        this.activeDrawingNode = newPen;
-        this.isDragging = true; 
-        return;
-    }
-
-    // ==========================================
-    // DEFAULT: PANNING
-    // ==========================================
+    // Egal wo wir hingeklickt haben (Main, RSI, MACD), wir landen hier und aktivieren Panning!
     this.isDragging = true;
     this.startX = e.clientX;
-    this.startY = e.clientY; // <--- NEU: Y-Startpunkt merken
+    this.startY = e.clientY;
     this.startScrollOffset = this.timeScale.scrollOffset;
 
-    // NEU: Wir merken uns die Preise, die beim Klick-Start aktuell waren
-    if (targetPane) {
-        const pScale = targetPane.getPriceScale() as any;
-        (this as any).initialMin = pScale.minPrice;
-        (this as any).initialMax = pScale.maxPrice;
+    //console.log("MOUSE DOWN: Dragging is now", this.isDragging, "in Pane:", targetPaneInfo?.getId()); // <--- HIER EINFÜGEN
+
+    // Start-Preise merken (Für vertikales Verschieben des jeweils aktiven Panes)
+    if (priceScale) {
+        (this as any).initialMin = priceScale.minPrice;
+        (this as any).initialMax = priceScale.maxPrice;
     }
 
     this.canvas.style.cursor = 'grabbing';
-  };
+};
 
 private onMouseMove = (e: MouseEvent) => {
     const rect = this.canvas.getBoundingClientRect();
+    
+    // ==========================================
+    // PERFORMANCE SHIELD 
+    // ==========================================
+    const isInside = e.clientX >= rect.left && e.clientX <= rect.right &&
+                     e.clientY >= rect.top && e.clientY <= rect.bottom;
+
+    // Wenn die Maus NICHT in diesem Chart ist UND wir nichts ziehen -> IGNORIEREN!
+    if (!isInside && !this.isDragging && !this.isScalingY && !this.isResizingPane && !this.isDraggingPoint) {
+        return; // Bricht sofort ab -> Spart extrem viel CPU!
+    }
+
+    e.preventDefault(); // Erst preventen, wenn wir sicher im Chart sind!
+
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     this.lastMouseX = x;
@@ -594,6 +613,8 @@ private onMouseMove = (e: MouseEvent) => {
 
     this.manager.setMousePos(x, y);
     const logicalCoords = this.getLogicalCoordinates(x, y);
+
+    //console.log("MOUSE MOVE: Dragging is", this.isDragging);
 
     // ==========================================
     // NEU: DIRTY CHECK FÜR PERFORMANCE
@@ -717,40 +738,43 @@ private onMouseMove = (e: MouseEvent) => {
         return; // WICHTIG: Damit wir nicht gleichzeitig pannen!
     }
 
-        // --- 4. PANNING (Verschieben des Charts X und Y) ---
+    // --- 4. PANNING (Verschieben des Charts X und Y) ---
+    //console.log("CHECK PANNING:", this.isDragging, !this.activeDrawingNode);
     if (this.isDragging && !this.activeDrawingNode) { 
-      // A. Horizontales Panning (Zeitachse)
+      // A. Horizontales Panning (Zeitachse - Global für alle)
       const deltaX = e.clientX - this.startX;
       this.timeScale.scrollOffset = this.startScrollOffset + deltaX;
 
-      // B. Vertikales Panning (Preisachse)
-      const deltaY = e.clientY - this.startY; // Differenz Mausbewegung
-      const targetPane = this.manager.getPaneAt(this.startY - this.canvas.getBoundingClientRect().top);
-
-      if (targetPane && Math.abs(deltaY) > 2) {
-          // Sobald der User den Chart vertikal zieht -> AUTO-SCALE AUSSCHALTEN!
-          (this.manager as any).isAutoScaling = false;
-
-          const priceScale = targetPane.getPriceScale() as any;
-          
-          // Wir berechnen: Wie viel "Preis" entspricht einem Pixel?
-          const priceRange = (this as any).initialMax - (this as any).initialMin;
-          const pricePerPixel = priceRange / priceScale.height;
-          const priceDelta = deltaY * pricePerPixel;
-
-          // Wir verschieben die Skala um die Mausdifferenz
-          priceScale.minPrice = (this as any).initialMin + priceDelta;
-          priceScale.maxPrice = (this as any).initialMax + priceDelta;
+      // B. Vertikales Panning (Preisachse - Nur für das aktuelle Fenster)
+      const deltaY = e.clientY - this.startY;
+      this.startY = e.clientY; // WICHTIG: StartY updaten für flüssiges Scrollen
+      
+      const targetPaneInfo = this.manager.getPaneAt(y);
+      
+      if (targetPaneInfo && Math.abs(deltaY) > 0) {
+          if (targetPaneInfo.getId() !== 'main') {
+              // Indikatoren wie RSI oder MACD werden auf der Y-Achse nicht manuell verschoben, 
+              // da dies ihr Auto-Scaling stören würde. Horizontales Panning läuft aber weiter.
+          } else {
+              const priceScale = targetPaneInfo.getPriceScale();
+              priceScale.isAutoScaled = false; // Auto-Scale aus, wir bewegen manuell!
+              
+              // Pixel in Preis umrechnen und in scrollOffset speichern
+              const priceRange = (priceScale.maxPrice - priceScale.minPrice) / priceScale.zoom;
+              const pricePerPixel = priceRange / priceScale.height;
+              
+              priceScale.scrollOffset += deltaY * pricePerPixel;
+          }
       }
       
-      this.manager.isChartDirty = true; // Neuzeichnen erzwingen
+      this.manager.isChartDirty = true; 
     }
 
     // --- 5. PRICE SCALING (Y-Achse ziehen) ---
     if (this.isScalingY) {
       const deltaY = e.clientY - this.startY;
       this.startY = e.clientY;
-      this.manager.zoomPrice(deltaY);
+      this.manager.zoomPrice(deltaY, this.scalingPaneId);
     }
 
     this.updateCursor(x, y);
@@ -857,6 +881,14 @@ private onMouseUp = () => {
 
     const rect = this.canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
+
+    // Sicherheits-Check: Hat der Manager überhaupt Optionen geladen? Fallback auf 60px.
+    const axisWidth = (this.manager.options && this.manager.options.layout) 
+        ? this.manager.options.layout.axisWidth 
+        : 60;
+
+    // Wenn die Maus über der Preis-Achse schwebt, brechen wir den Zeit-Zoom ab!
+    if (mouseX > (rect.width - axisWidth)) return;
 
     // Index bestimmen, um um den Mauszeiger herum zu zoomen
     const indexUnderMouse = this.timeScale.xToIndex(mouseX);

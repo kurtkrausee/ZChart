@@ -33,7 +33,36 @@ export class LineSeriesNode extends SceneNode {
     this.lineWidth = lineWidth;
   }
 
+  /**
+   * Wird von der AutoScaleEngine aufgerufen, um die Y-Achse perfekt anzupassen
+   */
+  public getMinMax(start: number, end: number): { min: number, max: number } | null {
+    if (!this.isVisible) return null;
+    
+    const data = this.dataStore.getAllData();
+    let min = Infinity;
+    let max = -Infinity;
+
+    for (let i = start; i <= end; i++) {
+      const candle = data[i];
+      if (!candle) continue;
+      
+      const val = candle[this.dataKey];
+      // Nur gültige Zahlen berücksichtigen
+      if (val !== undefined && val !== null && !isNaN(val)) {
+        if (val < min) min = val;
+        if (val > max) max = val;
+      }
+    }
+
+    if (min === Infinity) return null;
+    return { min, max };
+  }
+
   draw(ctx: CanvasRenderingContext2D, timeScale: TimeScale, priceScale: PriceScale, options: ChartConfig): void {
+    // NEU: Wenn die Linie unsichtbar geschaltet ist, sofort abbrechen!
+    if (!this.isVisible) return
+
     const totalData = this.dataStore.getAllData().length;
     const { start, end } = timeScale.getVisibleRange(totalData);
     const visibleData = this.dataStore.getVisibleData(start, end);

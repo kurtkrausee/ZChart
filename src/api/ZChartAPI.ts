@@ -12,6 +12,9 @@ import { AreaNode } from '../nodes/series/AreaNode';
 import { OhlcBarNode } from '../nodes/series/OhlcBarNode';
 import { calculateSMA } from '../math/indicators/SMA';
 import { IndicatorRegistry, IndicatorConfig } from '../core/IndicatorRegistry';
+import { Pane } from '../core/Pane';
+import { HistogramNode } from '../nodes/series/HistogramNode';
+import { HorizontalLineNode } from '../nodes/tools/HorizontalLineNode';
 
 // --- Typ für das Event-System ---
 export type ZChartEventCallback = (data: any) => void;
@@ -72,7 +75,7 @@ export class ZChartAPI {
     /**
      * Steuert das aktive Werkzeug (z.B. von der Toolbar aufgerufen)
      */
-    public setTool(tool: 'pan' | 'trendline' | 'fibo'): void {
+    public setTool(tool: 'pan' | 'trendline' | 'fibo' | 'horizontal'): void {
         const input = this.manager.inputManager;
         if (tool === 'pan') {
             input.mode = 'crosshair_and_pan';
@@ -80,73 +83,125 @@ export class ZChartAPI {
             input.mode = 'draw_trendline';
         } else if (tool === 'fibo') {
             input.mode = 'draw_fibo'; // <--- NEU
+        } else if (tool === 'horizontal') {
+            input.mode = 'draw_horizontal_line'; // <--- NEU
         }
     }
 
+    // ==========================================
+    // UNIFIED TREE HELPER
+    // ==========================================
+    
     /**
-     * Löscht ein Objekt anhand der ID
+     * Sucht ein Objekt anhand der ID. 
+     * Schaut zuerst bei den Zeichnungen, dann bei den festen Nodes im Main-Pane.
+     */
+    private findTreeObject(id: string) {
+        // 1. Ist es eine Zeichnung?
+        const drawing = this.manager.drawingManager.shapes.find(s => s.id === id);
+        if (drawing) return { obj: drawing, type: 'drawing' };
+
+        // 2. Ist es ein Chart/Overlay im Main-Pane?
+        const mainPane = (this.manager as any).panes.find((p: any) => p.id === 'main');
+        if (mainPane) {
+            const engineNode = mainPane.nodes.find((n: any) => n.id === id);
+            if (engineNode) return { obj: engineNode, type: 'engineNode', pane: mainPane };
+        }
+
+        return null;
+    }
+
+    // ==========================================
+    // API METHODEN UPDATEN
+    // =========================================
+
+
+   /**
+     * Löscht ein Objekt (unterstützt jetzt Gruppen!)
      */
     public deleteDrawing(id: string) {
-        this.manager.drawingManager.removeDrawing(id);
-        this.emit('drawingDeleted', id);
+        if (id === 'main_candles') {
+            alert("Der Haupt-Chart kann nicht gelöscht werden.");
+            return;
+        }
+
+        // 1. Aus allen Panes löschen (Filtert exakte ID oder Gruppen-ID)
+        (this.manager as any).panes.forEach((pane: any) => {
+            pane.nodes = pane.nodes.filter((node: any) => {
+                return !(node.id === id || (node.config && `indicator_${node.config.id}` === id));
+            });
+        });
+
+        // 2. Aus Zeichnungen löschen
+        this.manager.drawingManager.shapes = this.manager.drawingManager.shapes.filter(s => s.id !== id);
+
+        this.manager.render();
+        this.emit('treeUpdated');
     }
 
     /**
-     * Schaltet Sichtbarkeit im Baum um
+     * Schaltet Sichtbarkeit im Baum um (unterstützt jetzt Gruppen!)
      */
     public setVisible(id: string, visible: boolean) {
-        // 1. Suche in den Zeichnungen (Trendlinien etc.)
-        const shape = this.manager.drawingManager.shapes.find(s => s.id === id);
-        if (shape) {
-            shape.isVisible = visible;
-        }
+        let foundAny = false;
+        const allNodes = [
+            ...(this.manager as any).panes.flatMap((p: any) => p.nodes),
+            ...this.manager.drawingManager.shapes
+        ];
 
-        // 2. NEU: Suche in den festen Nodes (wie Kerzen oder RSI-Linien)
-        const mainPane = (this.manager as any).panes.find((p:any) => p.id === 'main');
-        if (mainPane) {
-            const node = mainPane.nodes.find((n:any) => n.id === id);
-            if (node) {
+        allNodes.forEach((node: any) => {
+            // Entweder exakte ID (Zeichnung) ODER es gehört zur angeklickten Indikator-Gruppe
+            if (node.id === id || (node.config && `indicator_${node.config.id}` === id)) {
                 node.isVisible = visible;
+                foundAny = true;
             }
-        }
-        
-        // Immer neu zeichnen!
-        this.manager.render();
-    }
+        });
 
-    /**
-     * Für den Drag & Drop im Object Tree
-     */
-    public moveLayer(id: string, toIndex: number) {
-        this.manager.drawingManager.reorder(id, toIndex);
-    }
-
-    /**
-     * Schiebt ein Element ganz nach oben (Vordergrund)
-     */
-    public moveToFront(id: string): void {
-        const shapes = this.manager.drawingManager.shapes;
-        const index = shapes.findIndex(s => s.id === id);
-        if (index !== -1) {
-            const [shape] = shapes.splice(index, 1);
-            shapes.push(shape);
-            // FORCE RENDER: Damit man es sofort sieht
-            (this.manager as any).render(); 
+        if (foundAny) {
+            this.manager.render();
+            this.emit('treeUpdated'); 
         }
     }
 
     /**
-     * Schiebt ein Element ganz nach unten (Hintergrund)
+     * Verschiebt ein Objekt exakt eine Ebene nach oben oder unten (Z-Index Swap).
      */
-    public moveToBack(id: string): void {
-        const shapes = this.manager.drawingManager.shapes;
-        const index = shapes.findIndex(s => s.id === id);
-        if (index !== -1) {
-            const [shape] = shapes.splice(index, 1);
-            shapes.unshift(shape); // Ganz an den Anfang des Arrays
-            (this.manager as any).render(); 
+    public moveLayerZIndex(id: string, direction: 'up' | 'down') {
+        const mainPane = (this.manager as any).panes.find((p: any) => p.id === 'main');
+        const engineNodes = mainPane ? mainPane.nodes : [];
+        const drawings = this.manager.drawingManager.shapes;
+
+        // 1. Alle Objekte flach zusammenlegen
+        let allObjects = [...engineNodes, ...drawings];
+
+        // 2. WICHTIG: Wir bereinigen die Z-Indizes, damit es keine doppelten Zahlen gibt (0, 1, 2, 3...)
+        allObjects.sort((a, b) => a.zIndex - b.zIndex);
+        allObjects.forEach((obj, idx) => obj.zIndex = idx);
+
+        // 3. Wo steht unser Objekt?
+        const currentIndex = allObjects.findIndex(obj => obj.id === id);
+        if (currentIndex === -1) return;
+
+        const targetIndex = direction === 'up' ? currentIndex + 1 : currentIndex - 1;
+
+        if (targetIndex >= 0 && targetIndex < allObjects.length) {
+            // 4. Jetzt tauschen! Da die Z-Indizes jetzt garantiert einzigartig sind, klappt das immer.
+            const currentObj = allObjects[currentIndex];
+            const targetObj = allObjects[targetIndex];
+
+            const tempZ = currentObj.zIndex;
+            currentObj.zIndex = targetObj.zIndex;
+            targetObj.zIndex = tempZ;
+
+            // 5. Dem Render-Manager die neue Sortierung aufzwingen
+            if (mainPane) mainPane.nodes.sort((a: any, b: any) => a.zIndex - b.zIndex);
+            this.manager.drawingManager.shapes.sort((a: any, b: any) => a.zIndex - b.zIndex);
+
+            this.manager.render();
+            this.emit('treeUpdated'); 
         }
     }
+
 
     /**
      * IMPORT: Wandelt das Server-JSON (Timestamps) in ZChart-Nodes (Indizes) um.
@@ -335,25 +390,50 @@ export class ZChartAPI {
         }
     }
     /**
-     * Holt alle Objekte für den React Object Tree
+     * Holt ALLE Objekte und gruppiert Multi-Linien Indikatoren (MACD, BB)
      */
     public getAllDrawings() {
-        return this.manager.drawingManager.shapes.map((shape) => {
-            // Wir geben den Objekten schöne Namen für die UI
-            let displayName = 'Zeichnung';
-            if (shape instanceof TrendLineNode) displayName = 'Trendlinie';
-            else if (shape instanceof FiboNode) displayName = 'Fibonacci';
-            else if (shape instanceof EmojiNode) displayName = 'Emoji';
-            else if (shape instanceof TextNode) displayName = 'Text';
-            else if (shape instanceof PenNode) displayName = 'Pinsel';
-            
-            return {
-                id: shape.id,
-                name: displayName,
-                visible: shape.isVisible
-            };
-        }).reverse(); // Reverse, damit das oberste Objekt im Chart auch oben in der Liste steht!
+        // Holt Nodes aus ALLEN Panes (Main + Sub-Panes)
+        const allNodes = [
+            ...(this.manager as any).panes.flatMap((p: any) => p.nodes),
+            ...this.manager.drawingManager.shapes
+        ].sort((a, b) => a.zIndex - b.zIndex);
+
+        const treeItems: any[] = [];
+        const processedConfigs = new Set();
+
+        allNodes.forEach(shape => {
+            if (shape.config) {
+                // Es ist ein Indikator! Wir fügen ihn nur EINMAL in die Liste ein, 
+                // selbst wenn er aus 3 Linien (wie MACD) besteht.
+                if (!processedConfigs.has(shape.config.id)) {
+                    processedConfigs.add(shape.config.id);
+                    treeItems.push({
+                        id: `indicator_${shape.config.id}`, // Das ist die "Gruppen-ID"
+                        name: `${shape.config.type.toUpperCase()} (${shape.config.inputs.period || ''})`,
+                        visible: shape.isVisible, // Nimmt den Status der ersten Linie
+                        isTool: false
+                    });
+                }
+            } else {
+                // Normale Zeichnungen / Charts
+                let displayName = shape.name || 'Objekt';
+                if (shape.role === 'tool') {
+                    if (shape.constructor.name === 'TrendLineNode') displayName = 'Trendlinie';
+                    // ... andere Fallbacks
+                }
+                treeItems.push({
+                    id: shape.id,
+                    name: displayName,
+                    visible: shape.isVisible,
+                    isTool: shape.role === 'tool'
+                });
+            }
+        });
+
+        return treeItems.reverse();
     }
+
     /**
      * Holt alle zusätzlichen Panes (außer dem Haupt-Chart) für die UI
      */
@@ -448,13 +528,11 @@ export class ZChartAPI {
     private fetchBinanceData() {
         this.setWatermark(this.currentSymbol);
 
-        // API Call mit dem aktuellen Symbol und der ausgewählten Zeiteinheit
         const url = `https://api.binance.com/api/v3/klines?symbol=${this.currentSymbol}&interval=${this.currentTimeframe}&limit=500`;
 
         fetch(url)
             .then(res => res.json())
             .then(data => {
-                // Wenn Binance einen Fehler wirft (z.B. Symbol existiert nicht)
                 if (data.code) {
                     alert(`Binance Fehler: ${data.msg}`);
                     return;
@@ -472,13 +550,22 @@ export class ZChartAPI {
                 // Daten in die Engine pumpen
                 if (this.manager.dataStore) {
                     this.manager.dataStore.setData(newCandles);
-                    this.manager.dataStore.calculateRSI(14); 
+
+                    // Alle aktiven Indikatoren (auch in Sub-Panes!) für die neuen Kerzen neu berechnen!
+                    const panes = (this.manager as any).panes || [];
+                    panes.forEach((pane: any) => {
+                        if (pane.nodes) {
+                            pane.nodes.forEach((node: any) => {
+                                if (node.config) {
+                                    IndicatorRegistry.calculate(node.config.type, this.manager.dataStore, node.config);
+                                }
+                            });
+                        }
+                    });
                 }
 
-                // Scrollposition zurücksetzen
-                if (this.manager.timeScale) {
-                    this.manager.timeScale.scrollOffset = 0; 
-                }
+                // Scrollposition korrigieren (Wir bleiben am aktuellen, rechten Rand stehen!)
+                this.resetView(); 
 
                 // Layout neu berechnen lassen (wichtig für Auto-Scale!)
                 if (typeof (this.manager as any).calculateLayout === 'function') {
@@ -566,38 +653,160 @@ export class ZChartAPI {
             }
             
             this.manager.render();
+            this.emit('treeUpdated');
         }
+    
     }
 
     /**
      * UNIVERSAL-METHODE FÜR ALLE INDIKATOREN
      */
     public addIndicator(config: IndicatorConfig) {
-        // 1. Mathe berechnen (über die Registry, API muss die Math-Dateien nicht importieren!)
+        // 1. Mathe berechnen (über die Registry)
         IndicatorRegistry.calculate(config.type, this.manager.dataStore, config);
 
-        // 2. Ziel-Pane finden (Main oder Sub-Pane)
-        let targetPane = this.manager.panes.find(p => p.id === config.paneId);
+        // 2. Ziel-Pane finden ODER dynamisch erstellen (z.B. für RSI, MACD)
+        let targetPane = this.manager.panes.find((p: any) => p.id === config.paneId);
         
-        // (Falls es z.B. ein RSI ist und das Pane noch nicht existiert, wird es hier dynamisch erstellt)
+        if (!targetPane && config.paneId !== 'main') {
+            // Pane existiert noch nicht -> Wir erstellen ein neues!
+            const newPane = new Pane(config.paneId, 0.2); // 20% der Bildschirmhöhe
+            this.manager.addPane(newPane);
 
-        // 3. Linie zeichnen
-        if (targetPane) {
-            // Wir nutzen die bestehende LineSeriesNode für die optische Darstellung
-            const lineNode = new LineSeriesNode(
-                this.manager.dataStore, 
-                config.id, // Der Key, unter dem die Registry das Ergebnis gespeichert hat
-                config.styles.color, 
-                config.styles.lineWidth
-            );
-            lineNode.id = `indicator_${config.id}`;
-            lineNode.name = `${config.type.toUpperCase()} (${config.inputs.period})`;
-            lineNode.zIndex = 5;
+            targetPane = newPane;
             
-            targetPane.addNode(lineNode);
+            // Wenn ein neues Pane dazukommt, muss das Main-Pane Platz machen
+            const mainPane = this.manager.panes.find((p: any) => p.id === 'main');
+            if (mainPane) {
+                mainPane.heightWeight = Math.max(0.1, mainPane.heightWeight - 0.2);
+            }
+            
+            if (typeof (this.manager as any).resize === 'function') {
+                (this.manager as any).resize();
+            }
+        }
+
+        // 3. Linie(n) zeichnen
+        if (targetPane) {
+            
+            // NEU: MACD (1 Histogramm, 2 Linien)
+            if (config.type === 'macd') {
+                // A) Das Histogramm (Balken)
+                const histNode = new HistogramNode(this.manager.dataStore, `${config.id}_hist`, '#26a69a', '#ef5350');
+                (histNode as any).config = config;
+                histNode.id = `indicator_${config.id}_hist`;
+                histNode.name = `MACD Hist`;
+                histNode.zIndex = 4; // Unter den Linien
+                targetPane.addNode(histNode);
+
+                // B) MACD Linie (schnell, meistens blau)
+                const macdNode = new LineSeriesNode(this.manager.dataStore, `${config.id}_macd`, '#2962FF', 2);
+                (macdNode as any).config = config;
+                macdNode.id = `indicator_${config.id}_macd`;
+                macdNode.name = `MACD Line`;
+                macdNode.zIndex = 5;
+                targetPane.addNode(macdNode);
+
+                // C) Signal Linie (langsam, meistens orange)
+                const signalNode = new LineSeriesNode(this.manager.dataStore, `${config.id}_signal`, '#ff9800', 2);
+                (signalNode as any).config = config;
+                signalNode.id = `indicator_${config.id}_signal`;
+                signalNode.name = `Signal Line`;
+                signalNode.zIndex = 6;
+                targetPane.addNode(signalNode);
+            }
+
+
+            // Sonderfall: Bollinger Bänder (3 Linien)
+            if (config.type === 'bb') {
+                const colors = ['#2962FF', config.styles.color, '#2962FF']; // Mid, Upper, Lower
+                const keys = ['mid', 'upper', 'lower'];
+                
+                keys.forEach((suffix, idx) => {
+                    const lineNode = new LineSeriesNode(
+                        this.manager.dataStore, 
+                        `${config.id}_${suffix}`, 
+                        colors[idx], 
+                        config.styles.lineWidth
+                    );
+                    (lineNode as any).config = config; // Nur dem Haupt-Objekt die Config geben
+                    lineNode.id = `indicator_${config.id}_${suffix}`;
+                    lineNode.name = `${config.type.toUpperCase()} ${suffix} (${config.inputs.period})`;
+                    lineNode.zIndex = 5;
+                    targetPane!.addNode(lineNode);
+                });
+            }
+            
+            // NEU: ADX (3 Linien: ADX, +DI, -DI)
+            else if (config.type === 'adx') {
+                const lines = [
+                    { suffix: 'adx', color: '#ffeb3b', name: 'ADX' },
+                    { suffix: 'plusDI', color: '#26a69a', name: '+DI' },
+                    { suffix: 'minusDI', color: '#ef5350', name: '-DI' }
+                ];
+                
+                lines.forEach(line => {
+                    const lineNode = new LineSeriesNode(
+                        this.manager.dataStore, 
+                        `${config.id}_${line.suffix}`, 
+                        line.color, 
+                        line.suffix === 'adx' ? 2 : 1 // ADX etwas dicker
+                    );
+                    (lineNode as any).config = config;
+                    lineNode.id = `indicator_${config.id}_${line.suffix}`;
+                    lineNode.name = line.name;
+                    lineNode.zIndex = 5;
+                    targetPane!.addNode(lineNode);
+                });
+            }
+            
+            // Standardfall: Single Line (SMA, RSI)
+            else {
+                const lineNode = new LineSeriesNode(
+                    this.manager.dataStore, 
+                    config.id, 
+                    config.styles.color, 
+                    config.styles.lineWidth
+                );
+                (lineNode as any).config = config;
+                lineNode.id = `indicator_${config.id}`;
+                lineNode.name = `${config.type.toUpperCase()} (${config.inputs.period})`;
+                lineNode.zIndex = 5;
+                
+                targetPane.addNode(lineNode);
+            }
+            
             this.manager.render();
             
-            this.emit('indicatorAdded', config); // Gibt die Config an React zurück!
+            this.emit('indicatorAdded', config);
+            this.emit('treeUpdated');
         }
     }
+
+    /**
+     * Holt die Konfiguration eines Indikators (für das Einstellungs-Menü)
+     */
+    public getIndicatorConfig(id: string): IndicatorConfig | null {
+        const found = this.findTreeObject(id);
+        if (found && (found.obj as any).config) {
+            return (found.obj as any).config;
+        }
+        return null;
+    }
+
+    /**
+     * Speichert neue Einstellungen und berechnet den Indikator neu
+     */
+    public updateIndicator(id: string, newConfig: IndicatorConfig) {
+        // 1. Das alte Node komplett löschen
+        this.deleteDrawing(id); 
+        
+        // 2. Die ID muss zwingend erhalten bleiben!
+        newConfig.id = id;      
+        
+        // 3. Neu hinzufügen (berechnet automatisch alles frisch)
+        this.addIndicator(newConfig); 
+    }
+
+    
 }
