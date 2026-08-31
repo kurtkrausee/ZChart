@@ -1,57 +1,58 @@
-// src/nodes/series/AreaNode.ts
+// nodes/series/AreaNode.ts
+// Version: 1.2.0 | Updated: 2026-04-09 | By: GitHub Copilot
+// Theme-aware area chart – uses options.colors for line & gradient
 
-import type { TimeScale } from '../../math/TimeScale';
-import type { PriceScale } from '../../math/PriceScale';
-import type { CandleData } from '../../data/DataStore';
+import { TimeScale } from '../../math/TimeScale';
+import { PriceScale } from '../../math/PriceScale';
 import { SceneNode } from '../core/SceneNode';
+import { DataStore } from '../../data/DataStore';
 import type { ChartConfig } from '../../core/ChartOptions';
 
 export class AreaNode extends SceneNode {
-    public role = 'series'; 
-    private data: CandleData[];
+    public role = 'series';
+    private dataStore: DataStore;
 
-    // Wir übergeben die Daten im Konstruktor (wie bei CandlestickNode den DataStore)
-    constructor(data: CandleData[]) {
+    constructor(dataStore: DataStore) {
         super();
-        this.data = data;
+        this.dataStore = dataStore;
     }
 
-    // Die Draw-Methode muss exakt die Signatur aus SceneNode matchen!
-    public draw(
-        ctx: CanvasRenderingContext2D, 
-        timeScale: TimeScale, 
-        priceScale: PriceScale, 
-        options: ChartConfig
-    ): void {
-        if (!this.isVisible || this.data.length === 0) return;
+    draw(ctx: CanvasRenderingContext2D, timeScale: TimeScale, priceScale: PriceScale, options: ChartConfig): void {
+        const totalCandles = this.dataStore.getAllData().length;
+        const { start, end } = timeScale.getVisibleRange(totalCandles);
+        const visibleData = this.dataStore.getVisibleData(start, end);
+
+        if (visibleData.length === 0) return;
 
         ctx.save();
         
         ctx.beginPath();
-        const startX = timeScale.indexToX(0);
-        const startY = priceScale.priceToY(this.data[0].close);
+        const startX = timeScale.indexToX(start);
+        const startY = priceScale.priceToY(visibleData[0].close);
         ctx.moveTo(startX, startY);
 
-        for (let i = 1; i < this.data.length; i++) {
-            const x = timeScale.indexToX(i);
-            const y = priceScale.priceToY(this.data[i].close);
+        for (let i = 1; i < visibleData.length; i++) {
+            const x = timeScale.indexToX(start + i);
+            const y = priceScale.priceToY(visibleData[i].close);
             ctx.lineTo(x, y);
         }
 
-        ctx.strokeStyle = '#2962ff';
+        // Stroke the line (theme-aware)
+        ctx.strokeStyle = options.colors.areaLineColor;
         ctx.lineWidth = 2;
         ctx.stroke();
 
-        const lastX = timeScale.indexToX(this.data.length - 1);
-        const bottomY = priceScale.priceToY(priceScale.visibleMin); 
+        // Close area for gradient fill
+        const lastX = timeScale.indexToX(start + visibleData.length - 1);
+        const bottomY = priceScale.priceToY(priceScale.visibleMin);
 
         ctx.lineTo(lastX, bottomY);
         ctx.lineTo(startX, bottomY);
         ctx.closePath();
 
         const gradient = ctx.createLinearGradient(0, priceScale.priceToY(priceScale.visibleMax), 0, bottomY);
-        gradient.addColorStop(0, 'rgba(41, 98, 255, 0.4)');
-        gradient.addColorStop(1, 'rgba(41, 98, 255, 0.0)');
+        gradient.addColorStop(0, options.colors.areaGradientStart);
+        gradient.addColorStop(1, options.colors.areaGradientEnd);
         
         ctx.fillStyle = gradient;
         ctx.fill();

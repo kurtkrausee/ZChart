@@ -1,4 +1,6 @@
 // nodes/series/OhlcBarNode.ts
+// Version: 1.0.0 | Updated: 2026-04-09 | By: GitHub Copilot
+// OHLC bar rendering: vertical wick + left tick (open) + right tick (close)
 
 import type { ChartConfig } from '../../core/ChartOptions';
 import { TimeScale } from '../../math/TimeScale';

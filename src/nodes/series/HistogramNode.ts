@@ -6,7 +6,7 @@ import { SceneNode } from '../core/SceneNode';
 import type { ChartConfig } from '../../core/ChartOptions';
 
 export class HistogramNode extends SceneNode {
-  public role = 'series'; 
+  public role = 'series';
   private dataStore: any;
   private dataKey: string;
   private colorUp: string;
@@ -28,7 +28,7 @@ export class HistogramNode extends SceneNode {
     this.opacity = opacity;
   }
 
-  draw(ctx: CanvasRenderingContext2D, timeScale: TimeScale, priceScale: PriceScale, options: ChartConfig): void {
+  draw(ctx: CanvasRenderingContext2D, timeScale: TimeScale, priceScale: PriceScale, _options: ChartConfig): void {
     const totalData = this.dataStore.getAllData().length;
     const { start, end } = timeScale.getVisibleRange(totalData);
     const visibleData = this.dataStore.getVisibleData(start, end);

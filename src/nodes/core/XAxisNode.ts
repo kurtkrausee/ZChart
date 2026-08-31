@@ -1,28 +1,37 @@
 // nodes/XAxisNode.ts
+// Version: 1.8.0 | Updated: 2026-08-01 | By: Agent
+// ZV10-P3: Zukunfts-Labels — Label-Loop läuft über totalCount hinaus bis zum
+//   rechten Viewport-Rand; Timestamps via TimeScale.indexToTime-Extrapolation
+//   (Intervall der letzten 2 Kerzen), Zukunfts-Labels gedimmt (alpha 0.55).
+// P4.9: reads fontSize/fontFamily from options.layout, axisLine from options.colors
+// P7.4: passes timeScale format options (dateFormat, timeFormat, dayOfWeekOnLabels) to chartAxisLabel
 
 import type { ChartConfig } from '../../core/ChartOptions';
 import { TimeScale } from '../../math/TimeScale';
+import type { DataStore } from '../../data/DataStore';
+import { dateParts, chartAxisLabel, type AxisFormatOptions } from '../../utils/timeFormat';
 
 export class XAxisNode {
-  public role = 'axis';
+
+  constructor(private dataStore: DataStore) {}
+
   public draw(
     ctx: CanvasRenderingContext2D,
-    chartContentWidth: number, 
-    fullHeight: number,        
+    chartContentWidth: number,
+    fullHeight: number,
     timeScale: TimeScale,
-    options: ChartConfig,
-    dataArray: any[] // <--- NEU: Die Achse braucht die echten Kerzendaten!
+    options: ChartConfig
   ) {
     ctx.save();
     
     const axisHeight = options.layout.axisHeight;
-    const axisY = fullHeight - axisHeight; 
+    const axisY = fullHeight - axisHeight;
 
-    // 1. Hintergrund
+    // 1. Background
     ctx.fillStyle = options.colors.background;
     ctx.fillRect(0, axisY, chartContentWidth, axisHeight);
     
-    // 2. Trennlinie
+    // 2. Separator line
     ctx.strokeStyle = options.colors.axisLine;
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -30,56 +39,79 @@ export class XAxisNode {
     ctx.lineTo(chartContentWidth, axisY);
     ctx.stroke();
 
-    // 3. Texteinstellungen
-    ctx.fillStyle = options.colors.text;
-    ctx.font = `${options.layout.fontSize}px ${options.layout.fontFamily}`;
-    ctx.textAlign = 'center'; 
+    // 3. Labels
+    const allData = this.dataStore.getAllData();
+    const totalCount = allData.length;
+    if (totalCount === 0) { ctx.restore(); return; }
+
+    const { start, end } = timeScale.getVisibleRange(totalCount);
+
+    // Pixel-based step: target label every ~70px
+    const pxPerCandle = timeScale.candleWidth;
+    const minGapPx = 65;
+    const step = Math.max(1, Math.round(minGapPx / pxPerCandle));
+    const tz = options.timezone || 'UTC';
+
+    // P7.4: format options from options.timeScale
+    const fmt: AxisFormatOptions = {
+      timeFormat: options.timeScale?.timeFormat ?? '24h',
+      dateFormat: options.timeScale?.dateFormat ?? 'dd.MM.yyyy',
+      dayOfWeekOnLabels: options.timeScale?.dayOfWeekOnLabels ?? false,
+    };
+
+    // Initialize prev from candle before visible range
+    let prev: { year: number; month: number; day: number } | null = null;
+    const initIdx = Math.max(0, start - 1);
+    if (initIdx < totalCount) {
+      const p = dateParts(allData[initIdx].timestamp, tz);
+      prev = { year: p.year, month: p.month, day: p.day };
+    }
+
+    const labelY = axisY + (axisHeight / 2);
+    const normalFont = `${options.layout.fontSize}px ${options.layout.fontFamily}`;
+    const boldFont = `bold ${options.layout.fontSize}px ${options.layout.fontFamily}`;
+
+    ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    // 4. Zeit-Labels zeichnen (Dynamisch & Echte Zeiten)
-    // Wir nutzen hier die echte Länge der Daten statt der harten '500'
-    const { start, end } = timeScale.getVisibleRange(dataArray.length); 
-    
-    // ==========================================
-    // Dynamische Schrittweite (wie im Grid)
-    // ==========================================
-    const visibleCandles = end - start;
-    let step = 10;
-    if (visibleCandles > 1000) step = 200;
-    else if (visibleCandles > 500) step = 100;
-    else if (visibleCandles > 200) step = 50;
-    else if (visibleCandles > 100) step = 20;
-    else if (visibleCandles > 50) step = 10;
-    else step = 5;
-    
-    for (let i = start; i <= end; i++) {
-      if (i % step === 0) {
-        const x = timeScale.indexToX(i);
-        
-        // Echte Zeit aus den Daten holen
-        const time = timeScale.indexToTime(i, dataArray);
-        let labelText = '';
-        
-        if (time) {
-            // Timestamp (meist in Millisekunden) in ein JS-Datum umwandeln
-            // Falls deine API Sekunden schickt, musst du hier (time * 1000) machen
-            const date = new Date(time); 
-            
-            // Smarte Formatierung: 
-            // Weit rausgezoomt = Datum (z.B. 24.05.23) | Nah dran = Uhrzeit (z.B. 14:30)
-            if (visibleCandles > 150) {
-                labelText = date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' });
-            } else {
-                labelText = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-            }
-        }
-        
-        if (labelText) {
-            ctx.fillText(labelText, x, axisY + (axisHeight / 2));
-        }
-      }
+    let lastLabelX = -Infinity;
+
+    // ZV10-P3: Loop bis zum rechten Viewport-Rand statt totalCount — der
+    // Zukunftsbereich (Right-Offset/Überscrollen) bekommt extrapolierte,
+    // gedimmte Labels. Extrapolation braucht >= 2 Kerzen (Intervall).
+    const viewportEnd = Math.ceil(timeScale.xToIndex(chartContentWidth));
+    const lastLabelIdx = totalCount >= 2 ? Math.max(end, viewportEnd) : end;
+
+    for (let i = start; i <= lastLabelIdx; i++) {
+      if (i < 0) continue;
+      const isFuture = i >= totalCount;
+      if (isFuture && totalCount < 2) break;
+      if ((i - start) % step !== 0 && i !== start) continue;
+
+      const x = timeScale.indexToX(i);
+      if (x < 15 || x > chartContentWidth - 15) continue;
+
+      const ts = isFuture ? timeScale.indexToTime(i, allData) : allData[i].timestamp;
+      if (ts === null || ts === undefined) continue;
+      const { label, bold } = chartAxisLabel(ts, tz, prev, options.intervalMs, fmt);
+
+      // Update prev
+      const cp = dateParts(ts, tz);
+      prev = { year: cp.year, month: cp.month, day: cp.day };
+
+      // Enforce minimum gap (bold labels get tighter spacing)
+      const gap = x - lastLabelX;
+      const requiredGap = bold ? 35 : minGapPx;
+      if (gap < requiredGap) continue;
+
+      ctx.fillStyle = options.colors.text;
+      ctx.font = bold ? boldFont : normalFont;
+      if (isFuture) ctx.globalAlpha = 0.55; // Zukunfts-Label optisch abgesetzt
+      ctx.fillText(label, x, labelY);
+      if (isFuture) ctx.globalAlpha = 1;
+      lastLabelX = x;
     }
-    
+
     ctx.restore();
   }
 }

@@ -6,31 +6,48 @@ import { SceneNode } from './SceneNode';
 import type { ChartConfig } from '../../core/ChartOptions';
 
 export class StaticLineNode extends SceneNode {
-  public role = 'background'; 
-  private value: number;
-  private color: string;
-  private lineDash: number[];
+  public value: number;
+  public color: string;
+  public lineDash: number[];
+  public lineWidth: number;
+  public label?: string;
 
-  constructor(value: number, color: string = '#444', lineDash: number[] = [5, 5]) {
+  constructor(
+    value: number,
+    color: string = '#444',
+    lineDash: number[] = [5, 5],
+    lineWidth: number = 1,
+    label?: string,
+  ) {
     super();
     this.value = value;
     this.color = color;
     this.lineDash = lineDash;
+    this.lineWidth = lineWidth;
+    this.label = label;
   }
 
-  draw(ctx: CanvasRenderingContext2D, timeScale: TimeScale, priceScale: PriceScale, options: ChartConfig): void {
+  draw(ctx: CanvasRenderingContext2D, _timeScale: TimeScale, priceScale: PriceScale, _options: ChartConfig): void {
     const y = priceScale.priceToY(this.value);
-    const width = ctx.canvas.width; // Wir zeichnen über die volle Breite
+    const width = ctx.canvas.width;
 
     ctx.save();
     ctx.strokeStyle = this.color;
     ctx.setLineDash(this.lineDash);
-    ctx.lineWidth = 1;
+    ctx.lineWidth = this.lineWidth;
 
     ctx.beginPath();
     ctx.moveTo(0, y);
     ctx.lineTo(width, y);
     ctx.stroke();
+
+    if (this.label) {
+      ctx.setLineDash([]);
+      ctx.fillStyle = this.color;
+      ctx.font = '10px sans-serif';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(this.label, 4, y - 2);
+    }
 
     ctx.restore();
   }
