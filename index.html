@@ -4,10 +4,34 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>04-zchart</title>
+    <title>ZChart Core — Demo</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { background: #131722; color: #d1d4dc; font-family: system-ui, sans-serif; height: 100vh; display: flex; flex-direction: column; }
+      header { display: flex; gap: 6px; align-items: center; padding: 8px 12px; border-bottom: 1px solid #2a2e39; flex-wrap: wrap; }
+      header b { margin-right: 12px; }
+      button { background: #2a2e39; color: #d1d4dc; border: 0; border-radius: 4px; padding: 6px 10px; cursor: pointer; font-size: 13px; }
+      button:hover { background: #363a45; }
+      button.active { background: #2962ff; color: #fff; }
+      #chart { flex: 1; min-height: 0; }
+    </style>
   </head>
   <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.ts"></script>
+    <header>
+      <b>ZChart Core</b>
+      <button data-tool="pan" class="active">Pan</button>
+      <button data-tool="trendline">Trendlinie</button>
+      <button data-tool="ray">Ray</button>
+      <button data-tool="rectangle">Rechteck</button>
+      <button data-tool="fibo">Fibonacci</button>
+      <button data-tool="text_label">Text</button>
+      <button data-tool="emoji">Emoji</button>
+      <button data-tool="brush">Pinsel</button>
+      <button data-tool="measure">Messen</button>
+      <button id="theme">Hell/Dunkel</button>
+      <button id="snapshot">Snapshot</button>
+    </header>
+    <div id="chart"></div>
+    <script type="module" src="/demo/main.ts"></script>
   </body>
 </html>

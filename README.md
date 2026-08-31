@@ -1,36 +1,98 @@
-# ZChart Pro
+# ZChart
 
-<img align="right" width="500" src="https://github.com/user-attachments/assets/eaddfe90-3f2d-4b8b-9ed1-d6c7c095b8cd" alt="ZChart Pro Dashboard">
+**A modular TypeScript/Canvas charting engine for financial data — zero runtime dependencies.**
 
-## Eine leistungsstarke, KI-generierte Charting-Engine für Finanzdaten
+ZChart renders candlestick charts on a raw HTML5 canvas at 60 fps: unlimited panes with their own price scales (multi-Y-axis included), nice ticks, drawing tools, indicator registries, touch gestures (pinch-zoom, long-press) and a theme system. No framework required — plain TypeScript, one canvas element.
 
-ZChart ist eine modulare TypeScript/Canvas Charting-Bibliothek, die entwickelt wurde, um die Pane-Architektur und das Koordinaten-Mapping bestehender Lösungen zu verbessern. Der Kern dieser Engine entstand in nur zwei Tagen durch gezielte KI-unterstützte Entwicklung.
+> **v2.0.0 is a complete rebuild.** The engine matured for months inside a production trading dashboard (394 commits since v1) and has now been extracted back into this repository. The v1 code is preserved under the tag [`v1-legacy`](../../tree/v1-legacy); the v1 API docs no longer apply.
 
-### 🚀 Kernfunktionen
+## Features
 
-* **Native Performance:** HTML5 Canvas Rendering für flüssige 60fps, selbst bei vielen Datenpunkten.
-* **Modulare Pane-Architektur:** Unbegrenzte, isolierte Chart-Ansichten (Main, Volume, RSI) mit jeweils eigenen Preisskalen.
-* **Dumb-View Rendering:** Ideal für Live-Datenfeeds – der Chart rendert exakt das, was der DataStore ihm liefert (Pull & Push fähig).
-* **Interaktive Tools:** Integriertes Fibonacci-Retracement, Trendlinien und frei dreh-/skalierbare Emojis auf dem Canvas.
-* **Theming:** Volle Unterstützung für Dark/Light-Modes und anpassbare Grid-Designs.
+- **Rendering:** candlesticks, OHLC bars, line/area/baseline, histograms, volume — high-DPI aware, incremental redraws
+- **Panes:** unlimited sub-panes (RSI, MACD, …) with dividers, per-pane price scales, weight rebalancing, multi-Y-axis per pane (`yAxisId` binding)
+- **Axes:** nice ticks (1/2/2.5/5×10ⁿ), log & percent scale, custom ranges/ticks per pane, future labels, locale-aware number formatting, timezone support
+- **Interaction:** pan, anchored wheel zoom (X+Y), X-axis drag-zoom, crosshair with snapping, full touch support (pointer events, pinch, long-press, coarse hit targets)
+- **Drawing tools (20):** trendline, ray, extended line, h/v-line, cross line, horizontal ray, rectangle, ellipse, triangle, polyline/path, brush/highlighter, text, note, arrow, emoji (rotate/scale), measure, price range, date range, Fibonacci retracement
+- **Indicators (8 built-in):** SMA, EMA, RSI, MACD, Stochastic, ATR, Bollinger Bands, Volume SMA — plus registries to add your own
+- **Extensible by design:** `registerTool()`, `registerPaneIndicator()`, `registerOverlayIndicator()`, `registerDrawingSerializer()`, `registerTheme()` — plug in custom tools, indicators and themes without touching engine code
+- **Persistence:** drawing import/export with timestamp remapping (survives data reloads and history prepends)
+- **Events:** `drawingCreated`, `drawingChanged`, `crosshairMove`, `toolReset`, … — clean bridge to React/Vue/Svelte or vanilla apps
 
-### 📦 Installation & Nutzung
+## Quickstart
 
-ZChart ist aktuell als lokales Modul konzipiert.
+```bash
+npm install
+npm run dev      # opens the demo (demo/main.ts) with generated OHLCV data
+```
 
-1.  Kopiere den `src` Ordner in dein Web-Projekt (z.B. nach `libs/zchart`).
-2.  Importiere die API in dein Frontend:
+```ts
+import { ChartManager, ZChartAPI, Pane, CandlestickNode } from 'zchart';
 
-```typescript
-import { ChartManager, ZChartAPI } from './libs/zchart/index';
+const manager = new ChartManager(document.getElementById('chart')!);
 
-// Initialisierung
-const container = document.getElementById('zchart-container');
-const manager = new ChartManager(container);
-const zChart = new ZChartAPI(manager);
+const mainPane = new Pane('main', 1.0);
+const candles = new CandlestickNode(manager.dataStore);
+candles.role = 'series';
+mainPane.addNode(candles);
+manager.addPane(mainPane);
 
-// Daten laden
-zChart.dataStore.setAllData(chartData);
+const api = new ZChartAPI(manager);
 
-// Tools nutzen
-zChart.setTool('draw_fibo');
+manager.setData([
+  { timestamp: 1735689600000, open: 100, high: 102, low: 99, close: 101, volume: 1200 },
+  // … timestamp in ms
+]);
+
+api.setTool('trendline');                       // drawing tools
+api.subscribe('drawingCreated', console.log);    // events
+api.setTheme('light');                           // themes
+```
+
+The full wiring (volume pane, RSI pane with fixed range, toolbar, theme toggle, snapshot) is in [`demo/main.ts`](demo/main.ts) — ~90 lines, no backend.
+
+## Build
+
+```bash
+npm run build      # dist/zchart.js (ES module) + dist/**/*.d.ts
+npm test           # vitest (180+ unit tests)
+npm run typecheck
+```
+
+## Extending
+
+```ts
+import { registerTheme, registerOverlayIndicator, LineSeriesNode } from 'zchart';
+
+registerTheme({ id: 'sunset', label: 'Sunset', category: 'accent', /* … */ });
+
+registerOverlayIndicator('my_vwap', {
+  calculate: ds => ds.calculateSMA(20, 'my_vwap'),
+  buildNodes: ds => [new LineSeriesNode(ds, 'my_vwap', '#e91e63', 2)],
+});
+```
+
+Tools, pane indicators and drawing serializers follow the same pattern — see `src/input/tools/` and `src/api/indicators/` for reference implementations.
+
+## Project layout
+
+```
+src/
+  core/        ChartManager, Pane, options, visual settings, axis layout
+  math/        TimeScale, PriceScale, TickEngine, AutoScaleEngine
+  data/        DataStore (OHLCV + indicator series)
+  input/       InputManager, pointer interceptors, tool registry
+  nodes/       SceneNode tree: core (axes/grid/crosshair), series, tools, indicators
+  api/         ZChartAPI facade, controllers, registries, drawing serialization
+  themes/      theme registry + dark/light presets
+  utils/       formatters, geometry, time formatting
+demo/          vanilla demo (npm run dev)
+docs/          roadmap + workflow (development process)
+```
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+## ZChart Pro
+
+A commercial extension (advanced tools like Gann/pitchfork/channels, volume profiles, market-structure indicators, custom scripting, ready-made React UI) is in development in a separate repository and plugs into the registries above.
