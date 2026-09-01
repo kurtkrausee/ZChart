@@ -30,7 +30,7 @@ import { PolylineNode } from '../nodes/tools/PolylineNode';
 import { EmojiNode } from '../nodes/tools/EmojiNode';
 import { TriangleNode } from '../nodes/tools/TriangleNode';
 import type { DrawableShape } from '../types/DrawableShape';
-import { dispatchClick, dispatchLivePreview, dispatchDoubleClick } from './tools';
+import { dispatchClick, dispatchLivePreview, dispatchDoubleClick, dispatchDoubleClickHit } from './tools';
 import type { InterceptorPhase, PointerInterceptor, ZChartPointerEvent } from './PointerInterceptor';
 
 
@@ -333,8 +333,38 @@ export class InputManager {
   }
 
   private onKeyDown = (e: KeyboardEvent) => {
+    // Tasten nie abgreifen, wenn der Fokus in einem Eingabefeld liegt.
+    const t = e.target as HTMLElement | null;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+
     if (e.key === 'Escape') {
-      if (this.cancelInProgressDrawing()) e.preventDefault();
+      if (this.cancelInProgressDrawing()) { e.preventDefault(); return; }
+      if (this.manager.options.interaction.escDeselect === false) return;
+      const hadSelection = this.manager.drawingManager.shapes.some(sh => sh.isSelected);
+      if (hadSelection) {
+        this.manager.drawingManager.deselectAll();
+        this.manager.emit('drawingDeselected', { id: null });
+        this.manager.markDirty();
+        e.preventDefault();
+        return;
+      }
+      if (this.mode !== 'crosshair_and_pan') {
+        this.mode = 'crosshair_and_pan';
+        this.manager.emit('toolReset', null);
+        e.preventDefault();
+      }
+      return;
+    }
+
+    if ((e.key === 'Delete' || e.key === 'Backspace') && this.manager.options.interaction.deleteKey !== false) {
+      const selected = this.manager.drawingManager.shapes.filter(sh => sh.isSelected && !sh.isLocked);
+      if (selected.length === 0) return;
+      for (const sh of selected) {
+        this.manager.drawingManager.removeDrawing(sh.id);
+        this.manager.emit('drawingDeleted', { id: sh.id, type: sh.shapeType });
+      }
+      this.manager.markDirty();
+      e.preventDefault();
     }
   };
 
@@ -348,11 +378,44 @@ export class InputManager {
       e.stopPropagation(); // React-Root-Delegation (onContextMenu) nicht erreichen
       return;
     }
-    // Right-click cancels in-progress drawing (matches TradingView behavior).
-    if (this.cancelInProgressDrawing()) {
-      e.preventDefault();
-    }
+    // Rechtsklick bricht aktives Zeichnen ab; sonst Kontextmenue-Event fuer die
+    // Host-App (die Engine rendert selbst nie ein Menue).
+    e.preventDefault();
+    if (this.cancelInProgressDrawing()) return;
+    const rect = this.canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    this.manager.emit('contextMenuRequested', {
+      x, y,
+      clientX: e.clientX,
+      clientY: e.clientY,
+      logical: this.getLogicalCoordinates(x, y),
+      hit: this.buildContextHit(x, y),
+    });
   };
+
+  /** Hit-Info fuer contextMenuRequested: Zeichnung > Achse > Pane. */
+  private buildContextHit(x: number, y: number):
+    | { type: 'drawing'; id: string; shapeType: string; isLocked: boolean }
+    | { type: 'xAxis' }
+    | { type: 'yAxis' }
+    | { type: 'pane'; paneId: string | null } {
+    const rect = this.canvas.getBoundingClientRect();
+    if (y > rect.height - this.manager.options.layout.axisHeight) return { type: 'xAxis' };
+    if (x > rect.width - this.manager.options.layout.axisWidth) return { type: 'yAxis' };
+    const targetPane = this.manager.getPaneAt(y);
+    const priceScale = targetPane?.getPriceScale() as any;
+    if (priceScale) {
+      for (let i = this.manager.drawingManager.shapes.length - 1; i >= 0; i--) {
+        const shape = this.manager.drawingManager.shapes[i];
+        if (shape.isVisible === false) continue;
+        if (shape.hitTest(x, y, this.timeScale, priceScale) || (shape.isSelected && shape.hitTestAnchor(x, y, this.timeScale, priceScale))) {
+          return { type: 'drawing', id: shape.id, shapeType: shape.shapeType, isLocked: !!shape.isLocked };
+        }
+      }
+    }
+    return { type: 'pane', paneId: targetPane?.getId() ?? null };
+  }
 
   // --- NEU (Phase 8): Die zentrale Mapping-Funktion ---
   public getLogicalCoordinates(pixelX: number, pixelY: number): LogicalCoordinates | null {
@@ -1465,6 +1528,20 @@ private onPointerUp = (e: PointerEvent) => {
         if (lg && dispatchDoubleClick(this.mode, lg, this)) return;
     }
 
+
+    // Registrierter Dblclick-Hit-Hook (z.B. Tabellen-Zell-Editor eines Plugins)
+    {
+      const targetPane = this.manager.getPaneAt(y);
+      const priceScale = targetPane?.getPriceScale() as any;
+      const lg = this.getLogicalCoordinates(x, y);
+      if (priceScale && lg) {
+        for (let i = this.manager.drawingManager.shapes.length - 1; i >= 0; i--) {
+          const shape = this.manager.drawingManager.shapes[i];
+          if (shape.isVisible === false) continue;
+          if (shape.hitTest(x, y, this.timeScale, priceScale) && dispatchDoubleClickHit(shape, lg, this)) return;
+        }
+      }
+    }
 
     // Double-click on Y-axis → reset auto-scale
     if (x > (rect.width - this.manager.options.layout.axisWidth)) {

@@ -808,6 +808,16 @@ export class ChartManager {
   /**
    * Prepend older historical data. Adjusts scroll offset so the view stays in place.
    */
+  /** Live-Tick: Kerze aktualisieren/anhaengen (WS-Feed) + neu rendern. */
+  public upsertCandle(candle: import('../data/DataStore').CandleData): 'appended' | 'updated' | 'ignored' {
+    const result = this.dataStore.upsertCandle(candle);
+    if (result !== 'ignored') {
+      this.markDirty();
+      this.emit('candleUpserted', { result, timestamp: candle.timestamp });
+    }
+    return result;
+  }
+
   public prependData(olderData: import('../data/DataStore').CandleData[]) {
     const addedCount = this.dataStore.prependData(olderData);
     if (addedCount > 0) {

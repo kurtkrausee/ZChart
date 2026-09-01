@@ -289,6 +289,23 @@ export class ZChartAPI {
     public setMainLayerOrder(order: string[]): void { this.drawings.setMainLayerOrder(order); }
     public deleteDrawing(id: string): void { this.drawings.deleteDrawing(id); }
     public setVisible(id: string, visible: boolean): void { this.drawings.setVisible(id, visible); }
+
+    /** Layer ein-/ausblenden: Zeichnungs-ID ODER Node-Role ('series', 'indicator-<id>', ...). */
+    public setLayerVisible(idOrRole: string, visible: boolean): boolean {
+        for (const pane of this.manager.getPanes()) {
+            for (const n of pane.nodes) {
+                if ((n as any).role === idOrRole) { n.isVisible = visible; this.manager.markDirty(); return true; }
+            }
+        }
+        const shape = this.manager.drawingManager.shapes.find(sh => sh.id === idOrRole);
+        if (shape) { this.drawings.setVisible(idOrRole, visible); return true; }
+        return false;
+    }
+
+    /** Live-Tick (WS-Feed): letzte Kerze aktualisieren oder neue anhaengen. */
+    public upsertCandle(candle: import('../data/DataStore').CandleData): 'appended' | 'updated' | 'ignored' {
+        return this.manager.upsertCandle(candle);
+    }
     public moveLayer(id: string, toIndex: number): void { this.drawings.moveLayer(id, toIndex); }
     public moveToFront(id: string): void { this.drawings.moveToFront(id); }
     public moveToBack(id: string): void { this.drawings.moveToBack(id); }

@@ -51,6 +51,10 @@ export interface ToolConfig {
   /** Live-Preview per Tool (called from onMouseMove). Replaces the mega-switch in dispatchMouseMove.
    * Each tool registers its own preview logic here. */
   onLivePreview?: (node: DrawableShape, logical: LogicalCoordinates, drawStep: number, im: InputManager) => void;
+
+  /** Doppelklick auf eine FERTIGE Zeichnung dieses Typs (z.B. Tabellen-Zelle
+   * editieren). true = behandelt (Engine-Defaults wie Achsen-Fit entfallen). */
+  onDoubleClickHit?: (shape: DrawableShape, logical: LogicalCoordinates, im: InputManager) => boolean;
 }
 
 /** Internal registry map — private, not exported. */
@@ -333,4 +337,14 @@ export function dispatchDoubleClick(mode: string, logical: LogicalCoordinates, i
   cfg.onFinalize(im.activeDrawingNode, logical, im);
   resetIfStuck(im);
   return true;
+}
+
+/**
+ * Doppelklick auf eine bestehende Zeichnung: Hook des zugehoerigen Tools
+ * (Lookup ueber shapeType, Mode-Konvention 'draw_<shapeType>'). true = behandelt.
+ */
+export function dispatchDoubleClickHit(shape: DrawableShape, logical: LogicalCoordinates, im: InputManager): boolean {
+  const cfg = toolRegistry.get('draw_' + shape.shapeType);
+  if (!cfg || !cfg.onDoubleClickHit) return false;
+  return cfg.onDoubleClickHit(shape, logical, im);
 }
