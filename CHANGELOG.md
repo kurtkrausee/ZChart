@@ -28,3 +28,11 @@ Früher Prototyp (April 2026).
 - Public-API: Mechanik-Exporte für Plugin-Autoren (Scales, Utils, Registry-Helper, Serializer-Typen, Fib-Typen)
 ### Changed
 - App-spezifische Settings-Felder entfernt (Panel-Layout/Bars-Limits der Host-App), Overlay-Rolle heißt `trading_overlay`
+
+## [2.2.0] - 2026-09-01
+### Added
+- Entf/Backspace löscht selektierte Zeichnungen, Esc deselektiert bzw. setzt das Tool zurück (abschaltbar via `interaction`-Options; Eingabefelder ausgenommen)
+- `contextMenuRequested`-Event bei Rechtsklick/Long-Press mit Hit-Info (Zeichnung/Achse/Pane) — Host-Apps bauen darauf ihr Kontextmenü
+- Tool-Registry: `onDoubleClickHit`-Hook (Doppelklick auf fertige Zeichnung, z.B. Tabellen-Zell-Editor)
+- `setLayerVisible(idOrRole, visible)` — Serie/Indikatoren/Zeichnungen ein-/ausblenden
+- `upsertCandle(candle)` — Live-Tick-Pfad für WebSocket-Feeds (update/append), Event `candleUpserted`

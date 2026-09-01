@@ -50,6 +50,20 @@ export class DataStore {
   }
 
   /** Prepend older data (for historical data loading). Returns the count of new candles added. */
+  /**
+   * Live-Tick-Pfad: gleicher Timestamp wie die letzte Kerze = aktualisieren,
+   * neuerer = anhaengen, aelterer bekannter = aktualisieren, sonst ignorieren.
+   */
+  public upsertCandle(candle: CandleData): 'appended' | 'updated' | 'ignored' {
+    if (this.data.length === 0) { this.data.push(candle); return 'appended'; }
+    const last = this.data[this.data.length - 1];
+    if (candle.timestamp === last.timestamp) { Object.assign(last, candle); return 'updated'; }
+    if (candle.timestamp > last.timestamp) { this.data.push(candle); return 'appended'; }
+    const idx = this.data.findIndex(d => d.timestamp === candle.timestamp);
+    if (idx >= 0) { Object.assign(this.data[idx], candle); return 'updated'; }
+    return 'ignored';
+  }
+
   public prependData(olderData: CandleData[]): number {
     if (!olderData.length) return 0;
     // Filter duplicates (by timestamp)

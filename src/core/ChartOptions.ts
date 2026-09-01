@@ -59,6 +59,13 @@ export interface ChartConfig {
     // Candle coloring mode (Bug-Fix)
     colorBarsByPrevClose: boolean;
   };
+  /** Tastatur-/Interaktions-Verhalten der Engine (alles abschaltbar). */
+  interaction: {
+    /** Entf/Backspace loescht selektierte (nicht gesperrte) Zeichnungen. */
+    deleteKey: boolean;
+    /** Esc hebt Selektion auf bzw. setzt das Tool auf Pan zurueck. */
+    escDeselect: boolean;
+  };
   layout: {
     axisWidth: number;
     axisHeight: number;
@@ -183,6 +190,10 @@ export const defaultOptions: ChartConfig = {
     watermark: 'rgba(0,0,0,0)',
     colorBarsByPrevClose: false,
   },
+  interaction: {
+    deleteKey: true,
+    escDeselect: true,
+  },
   layout: {
     axisWidth: 60,
     axisHeight: 30,
@@ -236,6 +247,7 @@ export function mergeOptions(
 
   return {
     colors: deepMerge(base.colors, userOverrides.colors ?? {}),
+    interaction: deepMerge(base.interaction, userOverrides.interaction ?? {}),
     layout: deepMerge(base.layout, userOverrides.layout ?? {}),
     grid: {
       verticalLines: deepMerge(base.grid.verticalLines, userOverrides.grid?.verticalLines ?? {}),

@@ -70,6 +70,23 @@ document.getElementById('theme')!.addEventListener('click', () => {
   document.body.style.background = dark ? '#131722' : '#ffffff';
   document.body.style.color = dark ? '#d1d4dc' : '#131722';
 });
+// Live-Tick-Simulation (ZG-C1: upsertCandle) — letzte Kerze wandert, alle 3s neue Kerze
+let tickSeed = 7;
+const tickRnd = () => (tickSeed = (tickSeed * 1664525 + 1013904223) % 4294967296) / 4294967296;
+setInterval(() => {
+  const all = manager.dataStore.getAllData();
+  if (all.length === 0) return;
+  const last = all[all.length - 1];
+  const drift = (tickRnd() - 0.5) * 0.6;
+  const close = Math.max(5, last.close + drift);
+  api.upsertCandle({ ...last, close, high: Math.max(last.high, close), low: Math.min(last.low, close) });
+}, 400);
+setInterval(() => {
+  const all = manager.dataStore.getAllData();
+  const last = all[all.length - 1];
+  api.upsertCandle({ timestamp: last.timestamp + 86400000, open: last.close, high: last.close, low: last.close, close: last.close, volume: 500 });
+}, 3000);
+
 document.getElementById('snapshot')!.addEventListener('click', () => {
   const w = window.open(); if (w) w.document.write(`<img src="${api.snapshot()}" style="max-width:100%">`);
 });
