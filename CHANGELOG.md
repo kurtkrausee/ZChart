@@ -21,3 +21,10 @@ Kompletter Neuaufbau auf Basis der im privaten Trading-Dashboard weiterentwickel
 
 ## [1.x] - Tag `v1-legacy`
 Früher Prototyp (April 2026).
+
+## [2.1.0] - 2026-09-01
+### Added
+- Tool-Framework: `dispatchLivePreview` wird im Move-Pfad aufgerufen (Tool-eigene Gummiband-Previews via `onLivePreview`), Doppelklick/Double-Tap finalisiert registrierte Multi-Click-Tools (`dispatchDoubleClick`), `amendTool()` zum nachträglichen Ergänzen von Hooks durch Plugin-Pakete
+- Public-API: Mechanik-Exporte für Plugin-Autoren (Scales, Utils, Registry-Helper, Serializer-Typen, Fib-Typen)
+### Changed
+- App-spezifische Settings-Felder entfernt (Panel-Layout/Bars-Limits der Host-App), Overlay-Rolle heißt `trading_overlay`

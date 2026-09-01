@@ -1,7 +1,7 @@
 {
   "name": "zchart",
   "private": true,
-  "version": "2.0.0-dev",
+  "version": "2.1.0",
   "description": "ZChart Core - modular TypeScript/Canvas charting engine for financial data",
   "license": "MIT",
   "type": "module",
