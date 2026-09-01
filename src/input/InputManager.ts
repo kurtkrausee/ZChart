@@ -30,7 +30,7 @@ import { PolylineNode } from '../nodes/tools/PolylineNode';
 import { EmojiNode } from '../nodes/tools/EmojiNode';
 import { TriangleNode } from '../nodes/tools/TriangleNode';
 import type { DrawableShape } from '../types/DrawableShape';
-import { dispatchClick } from './tools';
+import { dispatchClick, dispatchLivePreview, dispatchDoubleClick } from './tools';
 import type { InterceptorPhase, PointerInterceptor, ZChartPointerEvent } from './PointerInterceptor';
 
 
@@ -809,6 +809,10 @@ private onPointerMove = (e: PointerEvent) => {
 
     // --- 1. LIVE PREVIEWS (Beim ersten Zeichnen) ---
     if (this.drawStep >= 1 && this.activeDrawingNode && logicalCoords) {
+        // Registrierte Tool-eigene Preview (Plugin-Pakete) hat Vorrang.
+        if (dispatchLivePreview(this.mode, logicalCoords, e, this)) {
+            this.manager.setMousePos(x, y);
+        } else {
         // Brush freehand: continuous point collection
         if (this.mode === 'draw_brush' && this.drawStep === 1 && this.activeDrawingNode instanceof BrushNode) {
             this.activeDrawingNode.points.push({ index: logicalCoords.index, price: logicalCoords.price });
@@ -851,6 +855,7 @@ private onPointerMove = (e: PointerEvent) => {
         // Triangle: Step 2 = point3 preview
         if (this.mode === 'draw_triangle' && this.drawStep === 2 && this.activeDrawingNode instanceof TriangleNode) {
             this.activeDrawingNode.point3 = { index: logicalCoords.index, price: logicalCoords.price };
+        }
         }
     }
 
@@ -1326,6 +1331,10 @@ private onPointerUp = (e: PointerEvent) => {
       this.finalizePolyline();
       return;
     }
+    if (this.mode.startsWith('draw_') && this.activeDrawingNode) {
+      const lg = this.getLogicalCoordinates(x, y);
+      if (lg && dispatchDoubleClick(this.mode, lg, this)) return;
+    }
 
     // Fit nur, wenn beide Taps im Pan-Modus lagen (kein Zeichnen im Spiel).
     if (firstTapMode !== 'crosshair_and_pan' || this.mode !== 'crosshair_and_pan') return;
@@ -1449,6 +1458,12 @@ private onPointerUp = (e: PointerEvent) => {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     const chartH = rect.height - this.manager.options.layout.axisHeight;
+
+    // Registrierte Multi-Click-Tools (steps: -1) via Registry finalisieren
+    if (this.mode.startsWith('draw_') && this.activeDrawingNode) {
+        const lg = this.getLogicalCoordinates(x, y);
+        if (lg && dispatchDoubleClick(this.mode, lg, this)) return;
+    }
 
 
     // Double-click on Y-axis → reset auto-scale

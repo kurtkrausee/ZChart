@@ -20,7 +20,7 @@ export { BaseIndicatorNode } from './nodes/indicators/BaseIndicatorNode';
 export type { IndicatorConfig } from './nodes/indicators/BaseIndicatorNode';
 
 // Registries — die Erweiterungspunkte (Tools/Indikatoren/Serializer/Themes)
-export { registerTool, getToolConfig, isToolRegistered, dispatchClick } from './input/tools';
+export { registerTool, amendTool, getToolConfig, isToolRegistered, dispatchClick, dispatchLivePreview } from './input/tools';
 export type { ToolConfig } from './input/tools';
 export { registerPaneIndicator, getPaneIndicator, listPaneIndicatorIds } from './api/indicators/paneRegistry';
 export { registerOverlayIndicator, getOverlayIndicator, listOverlayIndicatorIds } from './api/indicators/overlayRegistry';
