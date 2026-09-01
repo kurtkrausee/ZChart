@@ -1,6 +1,6 @@
 # ZChart Core / Pro — Destillation aus dem Dashboard
 
-**Version:** 2.2.0 | **Aktualisiert:** 2026-08-18 | **Status:** 🟡 ZC-P1–P7 fertig (Core released) — als Nächstes ZP-P1 (Pro)
+**Version:** 2.2.0 | **Aktualisiert:** 2026-08-18 | **Status:** 🟡 Core v2.0.0 released · ZP-P1 fertig — als Nächstes ZP-P2 (Engine-Plugins)
 
 > Ziel: Die Chart-Engine aus `react-app/src/zchart/` als eigenständiges Paket **ZChart Core** (frei, MIT, Repo [kurtkrausee/ZChart](https://github.com/kurtkrausee/ZChart)) und darauf aufbauend **ZChart Pro** (kommerziell, privates Repo `kurtkrausee/zchart-pro`) bereitstellen, so dass Dritte sie per npm einbinden können.
 >
@@ -116,3 +116,5 @@ Nachportierungen Dashboard ↔ Core/Pro später manuell je Bedarf (workflow.md �
 | 2026-08-18 | ZC-P5 | e445d2f | api/ (Fassade + 4 Controller + Serialization + Registries mit Basis-Defs), themes/ dark+light (Fallback tvDefault→darkPro), src/index.ts Public-Barrel, Lib-Build ES+d.ts. **Verify: tsc 0, 184/184 Tests, Build 359 kB** |
 | 2026-08-18 | ZC-P6 | s. git log | index.html + demo/main.ts (deterministische Daten, Toolbar/Theme/Snapshot), README v2, v1-Doku → docs/legacy/. **Verify: tsc 0 inkl. demo, vite-dev-Smoke 200** |
 | 2026-08-18 | ZC-P7 | 82ddbdd (main) | Release: PR #1 dev→main gemerged, Tag v2.0.0 + GitHub-Release, CHANGELOG 2.0.0. npm publish bewusst offen (Paketname/Scope-Entscheidung User, Paket noch private:true) |
+| 2026-09-01 | ZC-P7-Nachtrag | s. git log | package.json exports-Map + tsconfig.build auf src begrenzt (d.ts lagen nach Demo-Include unter dist/src — Fund beim Pro-Gerüst) |
+| 2026-09-01 | ZP-P1 | Pro-Repo dev | Pro-Gerüst: v1-Prototyp als Tag v1-legacy (inkl. gitignore-Reparatur: node_modules aus Index), package.json (peerDep zchart ^2.0.0, dev-Link file:../04 ZChart), Vite-Lib (zchart external), strict TS, Vitest, kommerzielle LICENSE, src/index.ts-Stub, docs/legacy. **Verify: tsc 0 (typisiert gegen Core-d.ts), Core-Link-Smoke 4/4, Build 0.17 kB Stub** |
