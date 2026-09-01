@@ -1,4 +1,4 @@
-// src/zchart/api/indicators/panes/volatility.ts
+// src/api/indicators/panes/volatility.ts
 // Version: 2.0.0 | Updated: 2026-06-10 | By: Agent
 // P3-Pilot + P6-Batch (ZChartAPI-Refactor): Volatility-Pane-Defs.
 import { ATRNode } from '../../../nodes/indicators/volatility/ATRNode';

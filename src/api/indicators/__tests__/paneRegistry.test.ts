@@ -1,4 +1,4 @@
-// src/zchart/api/indicators/__tests__/paneRegistry.test.ts
+// src/api/indicators/__tests__/paneRegistry.test.ts
 // Version: 1.0.0 | Updated: 2026-06-10 | By: Agent
 // P3 (ZChartAPI-Refactor): Registry-Vollständigkeit + Controller-Verhalten.
 import { describe, it, expect, vi } from 'vitest';

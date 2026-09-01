@@ -2,7 +2,6 @@
 // Version: 1.0.0 | Updated: 2026-04-26 | By: GitHub Copilot
 // ZChart-native TPO (Time Price Opportunity / Market Profile) calculation engine.
 // Pure functions only — no DOM/Canvas access. Drawing lives in TPOProfileNode.
-// Algorithm parity with components/charts/volumeProfileEngine.ts (calcMode: tpo, sessionTPO).
 // ============================================================================
 
 export interface TPOCandle {

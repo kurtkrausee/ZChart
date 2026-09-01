@@ -1,4 +1,4 @@
-// src/zchart/api/indicators/overlays/channels-bands.ts
+// src/api/indicators/overlays/channels-bands.ts
 // Version: 1.0.0 | Updated: 2026-06-10 | By: Agent
 // P8-Pilot (ZChartAPI-Refactor): Bänder/Trend-Overlays mit eigenen Composite-Nodes —
 // bbands (Node-calculate + Regex-Cleanup), ichimoku (ds-calculate, kein Cleanup),

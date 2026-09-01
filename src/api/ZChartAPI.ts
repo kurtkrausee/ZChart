@@ -17,7 +17,7 @@
 // │   5. Settings            this.settings    — Theme/Skalen/ChartStyle/Margins │
 // │   6. Pane-Indicators     this.indicators  — addIndicatorPane(id, …)        │
 // │   7. Overlay-Indicators  this.overlayIndicators                            │
-// │   8. Profiles / MA / Extras                                                │
+// │   8. (Erweiterungen → ZChart Pro)                                                │
 // │                                                                            │
 // │  NEUE Methoden NICHT inline implementieren — in den passenden Controller   │
 // │  (oder neuen Controller) legen und hier nur 1-Zeilen-Delegate ergänzen.    │
@@ -38,7 +38,6 @@
 // 6.58.0: P11 — DrawingsController extrahiert.
 // 6.57.0: P10b — Serializer-Migration fib/gann/patterns/special.
 // 6.56.0: P10a — DrawingSerializer-Kern + lines-shapes-Familie.
-// 6.55.0: P9 — Overlay-Migration Rest + ProfileController.
 // 6.54.0: P8 — Overlay-Registry-Kern.
 // 6.53.0: P7 — MovingAverageController + IndicatorExtrasController.
 // 6.49.0–6.52.0: P3–P6 — Pane-Indicator-Registry + Batch-Migrationen.
@@ -119,8 +118,7 @@ export class ZChartAPI {
 
     // ════════════════════════════════════════════════════════════════════════
     //  2. VIEWPORT — Koordinaten, Zoom, Scroll, Range  (→ ViewportController)
-    //  R-cnn-V2 P11.5a: Wrapper-API für externe Overlay-Komponenten
-    //  (z.B. Bbox-Overlay im /cnn/detections/:id/chart View).
+    //  Wrapper-API für externe Overlay-Komponenten (z.B. Bounding-Box-Overlays).
     // ════════════════════════════════════════════════════════════════════════
 
     public dateToPixel(timestamp: number): number { return this.viewport.dateToPixel(timestamp); }

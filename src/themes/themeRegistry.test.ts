@@ -1,4 +1,4 @@
-// zchart/themes/themeRegistry.test.ts
+// src/themes/themeRegistry.test.ts
 // Version: 1.0.0 | Updated: 2026-05-15 | By: Agent
 // P16.2: Tests — alle Built-in-Themes haben die erforderlichen Descriptor-Slots
 

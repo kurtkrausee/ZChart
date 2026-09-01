@@ -217,7 +217,7 @@ export function calculateAverageDailyRange(data: CandleData[], period = 14, key 
   for (let index = 0; index < data.length; index++) data[index][key] = adr[index];
 }
 
-/** Pure Kern-Funktion: Bollinger-Statistik auf rohen Werten. Exportiert für Backtest-Wrapper. */
+/** Pure Kern-Funktion: Bollinger-Statistik auf rohen Werten. Exportiert für externe Wrapper. */
 export function calcBbandsSeries(values: number[], period: number): {
   middle: Array<number | undefined>;
   deviation: Array<number | undefined>;

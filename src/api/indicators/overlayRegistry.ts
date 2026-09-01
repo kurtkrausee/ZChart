@@ -1,4 +1,4 @@
-// src/zchart/api/indicators/overlayRegistry.ts
+// src/api/indicators/overlayRegistry.ts
 // Version: 1.4.0 | Updated: 2026-08-08 | By: Agent
 // 1.4.0 (UXB-P7): OverlayBuildContext.lines — per-Linie-Stil (color/lineWidth/
 //   lineStyle) fuer Mehr-Linien-Overlays (Outside/Inside Span high/low). Wird
@@ -7,7 +7,7 @@
 // 1.3.0 (IAS-P5): Param seriesOnly (Outside/Inside Span "Nur Serien zeichnen").
 // 1.2.0: Attach-Tracking + recalculateAll() auf 'dataReplaced' — Pattern-Overlays
 //        (CandlePatternMarkerNode ≠ BaseIndicatorNode) rechnen nach setData neu,
-//        statt bis zum nächsten add() leer zu bleiben (Screener-Second-Click-Bug).
+//        statt bis zum nächsten add() leer zu bleiben (Zweit-Klick-Bug).
 // 1.1.0: P14 — echtes Silent-Failure (kein main-Pane bei add()) → devWarn().
 // P8 (ZChartAPI-Refactor): Overlay-Indicator-Registry — ersetzt den 650-Zeilen-Switch
 // in addOverlayIndicator + die per-id-Cleanup-Kaskade in removeOverlayIndicator.

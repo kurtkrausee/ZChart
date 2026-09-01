@@ -1,4 +1,4 @@
-// src/zchart/api/controllers/TemplatesController.ts
+// src/api/controllers/TemplatesController.ts
 // Version: 1.0.0 | Updated: 2026-06-10 | By: Agent
 // P1: localStorage-Template-Logik aus ZChartAPI.ts extrahiert (ehemals Z.271–390).
 import { defaultVisualSettings, deepMerge, isVisualSettings, type VisualSettings } from '../../core/VisualSettings';

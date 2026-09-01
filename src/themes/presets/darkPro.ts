@@ -1,6 +1,6 @@
-// zchart/themes/presets/darkPro.ts
+// src/themes/presets/darkPro.ts
 // Version: 2.0.0 | Updated: 2026-05-05 | By: Agent
-// P2: Dark Pro — Default dark theme (Dashboard Standard)
+// P2: Dark Pro — Default dark theme (Default)
 
 import { registerTheme } from '../registry';
 import type { DeepPartial } from '../../core/VisualSettings';

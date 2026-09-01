@@ -1,4 +1,4 @@
-// src/zchart/api/controllers/SettingsController.ts
+// src/api/controllers/SettingsController.ts
 // Version: 1.2.0 | Updated: 2026-07-06 | By: Agent
 // 1.2.0: Crosshair-Dash je Stil (cross [4,4], dashed [8,5], dotted [2,3]) —
 //        vorher sahen dashed und dotted identisch aus (hardcoded [4,4]).

@@ -1,4 +1,4 @@
-// src/zchart/api/types.ts
+// src/api/types.ts
 // Version: 1.0.0 | Updated: 2026-06-10 | By: Agent
 // P0: Shared types + devWarn helper extracted from ZChartAPI.ts (formerly inline).
 import type { VisualSettings } from '../core/VisualSettings';

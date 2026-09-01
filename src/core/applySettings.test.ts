@@ -1,4 +1,4 @@
-// zchart/core/applySettings.test.ts
+// src/core/applySettings.test.ts
 // Version: 1.0.0 | Updated: 2026-05-15 | By: Agent
 // P16.1: Tests für Render-Batching-Semantik von applySettings
 //

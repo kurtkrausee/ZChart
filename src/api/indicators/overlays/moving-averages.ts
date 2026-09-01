@@ -1,4 +1,4 @@
-// src/zchart/api/indicators/overlays/moving-averages.ts
+// src/api/indicators/overlays/moving-averages.ts
 // Version: 1.0.0 | Updated: 2026-06-10 | By: Agent
 // P8-Pilot (ZChartAPI-Refactor): einfache MA-Overlays — nur calculate,
 // Node ist der Controller-Default (LineSeriesNode auf dataKey, zIndex 8).

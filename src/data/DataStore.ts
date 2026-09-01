@@ -1,7 +1,7 @@
 // data/DataStore.ts
 // Version: 2.23.0 | Updated: 2026-04-25 | By: Gemini Agent
 // Data storage + series mutation layer. Indicator math is delegated to
-// zchart/indicators/calc/* modules so DataStore stays thin.
+// src/indicators/calc/* modules so DataStore stays thin.
 
 import { calculateRSI, calculateStochastic, calculateCCI, calculateWoodiesCCI, calculateROC, calculateWilliamsR, calculateBalanceOfPower, calculateMomentum, calculateAroon, calculateAroonOscillator, calculateAwesomeOscillator, calculateBullBearPower, calculateTRIX, calculateElderForceIndex, calculateEaseOfMovement, calculateChandeMomentumOscillator, calculateDetrendedPriceOscillator, calculateCoppockCurve, calculatePringSpecialK, calculateUltimateOscillator, calculateUlcerIndex, calculateFisherTransform, calculateStochasticRSI, calculatePPO, calculateStochasticMomentumIndex, calculateTrueStrengthIndex, calculatePriceMomentumOscillator, calculateKnowSureThing, calculateRelativeVigorIndex, calculateRelativeVolatilityIndex, calculateCorrelationCoefficient, calculateConnorsRSI, calculatePerformance, calculateRankCorrelationIndex, calculateRciRibbon, calculateSmiErgodicIndicator, calculateSmiErgodicOscillator, calculateTrendStrengthIndex } from '../indicators/calc/momentum';
 import { calculateSMA, calculateEMA, calculateMA, calculateALMA, calculateDEMA, calculateTEMA, calculateKAMA, calculateMcGinleyDynamic, calculateVWMA, calculateLeastSquaresMovingAverage, calculateWilliamsAlligator, calculateMovingAverageRibbon, calculateMedian, type MAMethod, type MASource } from '../indicators/calc/movingAverages';

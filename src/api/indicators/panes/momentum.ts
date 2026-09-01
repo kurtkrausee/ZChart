@@ -1,4 +1,4 @@
-// src/zchart/api/indicators/panes/momentum.ts
+// src/api/indicators/panes/momentum.ts
 // Version: 2.1.0 | Updated: 2026-08-11 | By: Agent
 // 2.1.0 (ZV10-P2): stochastic deklariert fixedRange -5..105 + Ticks 0/20/50/80/100
 // P3-Pilot + P4-Batch (ZChartAPI-Refactor): Momentum-Pane-Defs.

@@ -1,4 +1,4 @@
-// src/zchart/api/controllers/ViewportController.ts
+// src/api/controllers/ViewportController.ts
 // Version: 1.1.0 | Updated: 2026-08-16 | By: Agent
 // 1.1.0 (ZV10-P12): scrollToStart + scrollToEnd(rightMarginFraction).
 // P2: Koordinaten, Zoom, Scroll, Range, Crosshair, Snapshot — aus ZChartAPI.ts extrahiert.

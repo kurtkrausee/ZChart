@@ -1,4 +1,4 @@
-// zchart/core/__tests__/layerOrderRestore.test.ts
+// src/core/__tests__/layerOrderRestore.test.ts
 // Version: 1.0.0 | Updated: 2026-08-13 | By: Agent
 // ZIP-P5-Fix10: Sichert die Einsortier-Logik für Layer ab, die NACH dem Restore
 // auftauchen (Indikator-Nodes mounten asynchron nach den Drawings). Vorher

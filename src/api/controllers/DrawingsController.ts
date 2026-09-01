@@ -1,4 +1,4 @@
-// src/zchart/api/controllers/DrawingsController.ts
+// src/api/controllers/DrawingsController.ts
 // Version: 1.5.0 | Updated: 2026-08-16 | By: Agent
 // 1.5.0 (MSO-P4): updateCompareCandle(symbol, point) — Live-Tail-Update eines Compare-Overlays.
 // 1.4.0 (MSO-P3): Compare-Nodes bekommen hoverIndexProvider (Canvas-Label mit Wert am Cursor-Bar).

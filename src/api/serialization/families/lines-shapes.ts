@@ -1,4 +1,4 @@
-// src/zchart/api/serialization/families/lines-shapes.ts
+// src/api/serialization/families/lines-shapes.ts
 // Version: 1.0.0 | Updated: 2026-06-10 | By: Agent
 // P10a (ZChartAPI-Refactor): Familie "Linien & Formen" — 16 Tools, Verhalten 1:1
 // aus importDrawings/exportDrawings übernommen. Pro Tool stehen import- und

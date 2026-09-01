@@ -1,11 +1,10 @@
-// zchart/core/VisualSettings.ts
+// src/core/VisualSettings.ts
 // Version: 1.5.0 | Updated: 2026-08-16 | By: Agent
 // ZPI-P6: DataSettings.rememberDrawings (Opt-out Zeichnungs-Persistenz, Default AN)
 // ZV10-P6: TimeScaleSettings.zoomAnchor + Root-Block hotkeys (Record action→combo)
 // ZV10-P4: SymbolSettings.thousandSeparator + trimTrailingZeros (Zahlenformat)
 // P1: TV-Style Chart Settings Foundation — Interfaces, Defaults, Selector, Deep-Merge
 // P4.9: deriveChartConfigLayout selector (fontSize from canvas.scales)
-// 1.2.0: DataSettings um backtestBarsLimit + backtestBarsMode erweitert (Bar-Split)
 
 import type { ThousandSeparatorStyle } from '../utils/Formatters';
 
@@ -191,11 +190,7 @@ export interface TradingSettings {
   executionLabels: boolean;
   extendedPriceLines: boolean;
   orderAlignment: 'right' | 'left';
-  // P10: Broker-Panel-Layout
-  brokerPanelMode: 'sidebar' | 'bottom' | 'both';
-  brokerSidebarWidth: number;   // px, default 220
-  brokerBottomHeight: number;   // px, default 220
-  // P14a: Broker-Overlay (Live OANDA-Linien) Style-Override (optional)
+  // Trading-Overlay Style-Override (optional)
   tradeSignalStyle?: {
     longEntryColor?: string;
     shortEntryColor?: string;
@@ -241,20 +236,10 @@ export interface DataSettings {
    * ist 200_000 (s. `fastapi_routers/timescale_charts.py`). Sinnvolle Werte:
    *  -      500–1.000  schneller Standardchart
    *  -    5.000–10.000 langfristige Übersicht
-   *  -   50.000–100.000 Profiling / Backtest mit vielen Bars
+   *  -   50.000–100.000 Profiling / sehr große Historien
    * Achtung: 100k Bars sind ~12 MB JSON-Payload + ~500 MB Heap-Anstieg.
    */
   maxBars: number;
-  /**
-   * Maximale Bar-Anzahl für den Backtest-Run (unabhängig von maxBars).
-   * 0 = Profil-Default verwenden. Nur relevant wenn backtestBarsMode === "fixed".
-   */
-  backtestBarsLimit: number;
-  /**
-   * "fixed" = feste Bar-Anzahl (backtestBarsLimit), "dynamic" = on-demand Fetch
-   * per Zeitraum-Auswahl im BacktestPane (Gesamte Historie möglich).
-   */
-  backtestBarsMode: "fixed" | "dynamic";
   /**
    * ZIP-P4: „Indikatoren merken" — aktive Indikatoren (Built-in, Server-Python,
    * Moving Averages, Custom-Skripte) überleben Navigation und Browser-Neustart.
@@ -285,7 +270,7 @@ export interface VisualSettings {
   data: DataSettings;
   /**
    * ZV10-P6: Hotkey-Overrides `{action → combo}` (z.B. `{trendline: 'alt+t'}`).
-   * Leeres Objekt = Dashboard-Defaults (DEFAULT_HOTKEYS im React-Layer);
+   * Leeres Objekt = Host-App-Defaults;
    * die Engine interpretiert die Actions nicht.
    */
   hotkeys: Record<string, string>;
@@ -414,9 +399,6 @@ export const defaultVisualSettings: VisualSettings = {
     executionLabels: true,
     extendedPriceLines: true,
     orderAlignment: 'right',
-    brokerPanelMode: 'sidebar',
-    brokerSidebarWidth: 220,
-    brokerBottomHeight: 220,
     oneClickTrading: false,
     projectOrder: false,
     brackets: false,
@@ -442,14 +424,12 @@ export const defaultVisualSettings: VisualSettings = {
   },
 
   data: {
-    maxBars: 0,           // 0 = Profil-DB-Wert verwenden (kein Tab-Override)
-    backtestBarsLimit: 0, // 0 = Profil-DB-Wert verwenden
-    backtestBarsMode: "fixed" as const,
+    maxBars: 0,           // 0 = Host-App-Default verwenden
     rememberIndicators: true, // ZIP-P4: Default AN (User-Entscheidung 2026-08-04)
     rememberDrawings: true,   // ZPI-P6: Default AN (Entscheidung 7)
   },
 
-  // ZV10-P6: leer = Dashboard-Defaults (DEFAULT_HOTKEYS)
+  // leer = Host-App-Defaults
   hotkeys: {},
 };
 

@@ -1,4 +1,4 @@
-// src/zchart/api/serialization/families/annotations.ts
+// src/api/serialization/families/annotations.ts
 // Version: 1.0.0 | Updated: 2026-06-10 | By: Agent
 // Familie "Annotationen & Pfade" — schließt die F5-Persistenz-Lücke für die
 // Text-/Marker-Tools (note, price_note, callout, table, pin, anchored_text,

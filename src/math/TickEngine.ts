@@ -5,7 +5,7 @@
 //   ersetzen die Nice-Tick-Berechnung komplett.
 // ZV10-P1: "Nice Ticks" für die Y-Achse — runde Schrittweiten (1/2/2.5/5 × 10^n)
 // aus sichtbarer Range + Ziel-Pixelabstand, statt fixer paneHeight/5-Teilung.
-// Rein & testbar: keine Canvas-/DOM-/Dashboard-Abhängigkeiten.
+// Rein & testbar: keine Canvas-/DOM-Abhängigkeiten.
 //
 // Modi:
 // - Linear:  Ticks auf runden Preisen, gleichmäßiger Pixelabstand.
