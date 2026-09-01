@@ -1,4 +1,4 @@
-// zchart/types/DrawableShape.ts
+// src/types/DrawableShape.ts
 // Version: 2.6.0 | Updated: 2026-04-19 | By: GitHub Copilot
 // ============================================================================
 //  Gemeinsames Interface für alle zeichenbaren Formen (Tool-Nodes).

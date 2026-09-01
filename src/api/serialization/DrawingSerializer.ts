@@ -1,4 +1,4 @@
-// src/zchart/api/serialization/DrawingSerializer.ts
+// src/api/serialization/DrawingSerializer.ts
 // Version: 1.1.0 | Updated: 2026-08-13 | By: Agent
 // 1.1.0 (ZV10-P7d): yAxisId im Base-Export (nur wenn gesetzt) + zentraler Import
 // P10a (ZChartAPI-Refactor): Drawing-Serializer-Registry — ersetzt schrittweise die

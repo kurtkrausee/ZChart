@@ -9,13 +9,13 @@
 //  die Farbe des zugehoerigen Segments. Gestapelt wird von der Nulllinie der
 //  Skala aufwaerts in der Reihenfolge von `keys` (Index 0 unten).
 //
-//  Core-rein: keine Dashboard-Imports, keine App-Tokens — Farben kommen als
+//  Core-rein: keine App-Imports, keine App-Tokens — Farben kommen als
 //  Konstruktor-Argument bzw. ueber `setColors()` von aussen (der Aufrufer
 //  liest sie z.B. aus CSS-Variablen oder einem Modell-Manifest).
 //
 //  Einsatz (AR-P6 Rating-Statistik): Klassen-Verteilung je Lauf; `percent`
 //  normiert jeden Balken auf 0..100 (%-Stack). Wiederverwendbar u.a. fuer den
-//  Backtest-Report (Verteilungs-Charts).
+//  Verteilungs-Charts.
 //
 //  Nulllinie: `priceScale.priceToY(0)` — die Pane sollte daher eine Skala
 //  haben, die 0 enthaelt (z.B. `pane.priceScale.fixedRange = {min:0,max:N}`

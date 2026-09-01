@@ -1,4 +1,4 @@
-// zchart/themes/registry.ts
+// src/themes/registry.ts
 // Version: 2.0.0 | Updated: 2026-05-05 | By: Agent
 // P2: Theme-Registry — Self-registering theme store
 

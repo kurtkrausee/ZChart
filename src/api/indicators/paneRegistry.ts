@@ -1,4 +1,4 @@
-// src/zchart/api/indicators/paneRegistry.ts
+// src/api/indicators/paneRegistry.ts
 // Version: 1.1.0 | Updated: 2026-08-11 | By: Agent
 // 1.1.0 (ZV10-P2): PaneIndicatorDef.fixedRange + tickProvider — Indikatoren
 //   deklarieren Y-Range/Ticks selbst (ersetzt paneId-Switch der AutoScaleEngine).

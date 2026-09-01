@@ -1,4 +1,4 @@
-// zchart/nodes/core/DrawableSceneNode.ts
+// src/nodes/core/DrawableSceneNode.ts
 // Version: 1.0.0 | Updated: 2026-04-09 | By: GitHub Copilot
 // ============================================================================
 //  Abstrakte Brücke zwischen SceneNode (Pane-System) und DrawableShape

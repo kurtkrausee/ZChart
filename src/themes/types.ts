@@ -1,4 +1,4 @@
-// zchart/themes/types.ts
+// src/themes/types.ts
 // Version: 2.0.0 | Updated: 2026-05-05 | By: Agent
 // P2: Theme-Registry Types — ThemeDescriptor Interface
 

@@ -8,7 +8,7 @@
 //  durchgehende Linie ueber diskrete Laeufe liest sich wie ein Artefakt
 //  (README-Analyse §13). Das Chart.js-Pendant im Mockup ist `showLine:false`.
 //
-//  Core-rein: keine Dashboard-Imports; Farbe/Groesse kommen von aussen.
+//  Core-rein: keine App-Imports; Farbe/Groesse kommen von aussen.
 //
 //  Einsatz (AR-P6 Rating-Statistik): Ø-Rating je Lauf (Raute, Akzentfarbe)
 //  und rollierender Ø (grauer Querstrich) auf einer eigenen Pane mit fester

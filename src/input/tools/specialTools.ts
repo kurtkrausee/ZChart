@@ -2,8 +2,8 @@
 // Version: 5.0.0 | Updated: 2026-06-06 | By: Agent
 
 /**
- * Special tools — Anchored VWAP, Volume Profile, Regression Trend, Price/Date Range.
- * Tools: anchored_vwap, fixed_range_volume_profile, anchored_volume_profile, regression_trend, gann_box/square/fan, price_range, date_range, date_price_range
+ * Special tools — Bereichs-Tools.
+ * Tools: price_range, date_range
  */
 
 import { PriceRangeNode } from '../../nodes/tools/PriceRangeNode';

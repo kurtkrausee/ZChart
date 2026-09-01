@@ -1,4 +1,4 @@
-// src/zchart/api/indicators/__tests__/overlayRegistry.test.ts
+// src/api/indicators/__tests__/overlayRegistry.test.ts
 // Version: 1.1.0 | Updated: 2026-08-02 | By: Agent
 // 1.1.0: Re-Calc-Kontrakt (dataReplaced-Subscription, recalculateAll mit/ohne attach).
 // P8 (ZChartAPI-Refactor): Overlay-Registry — Vollständigkeit, Verhaltens-Kontrakt, Param-Defaults.

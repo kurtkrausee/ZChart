@@ -1,4 +1,4 @@
-// src/zchart/api/serialization/__tests__/linesShapes.roundtrip.test.ts
+// src/api/serialization/__tests__/linesShapes.roundtrip.test.ts
 // Version: 1.0.0 | Updated: 2026-06-10 | By: Agent
 // P10a (ZChartAPI-Refactor): Round-Trip-Tests — import(export(node)) muss pro Tool
 // verlustfrei sein (für alle Felder, die die Serialisierung heute trägt).

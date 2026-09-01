@@ -152,8 +152,8 @@ export class ChartManager {
    */
   private _desiredLayerOrder: string[] | null = null;
   /** SceneNode roles excluded from user-reordering (always drawn last). */
-  // broker_overlay: drawn outside clip so Y-axis labels can render into axis area
-  private static readonly FIXED_ROLES = new Set(['lastprice', 'dayhighlow', 'broker_overlay']);
+  // trading_overlay: drawn outside clip so Y-axis labels can render into axis area
+  private static readonly FIXED_ROLES = new Set(['lastprice', 'dayhighlow', 'trading_overlay']);
 
   private eventListeners: Map<string, Array<(data: any) => void>> = new Map();
   // ZV10-P7b: Zusatz-Achsen-Spalten des letzten Render-Passes — eine Quelle
@@ -185,7 +185,7 @@ export class ChartManager {
   /** Notfall: wieder jeden Frame rendern (Debug). */
   public setForceRender(on: boolean): void { this._forceRender = on; if (on) this._needsRender = true; }
 
-  // ── R-cnn-V2 P11.5a: viewChanged-Event-Tracking ───────────────────────────
+  // ── viewChanged-Event-Tracking ───────────────────────────
   // Nach jedem Render-Pass pruefen wir, ob sich der sichtbare Range geaendert
   // hat. Wenn ja -> emit('viewChanged', {dateRange, priceRange, indexRange}).
   // Deckt alle Mutationsquellen ab (zoom/pan/scrollToEnd/setData/prependData).
@@ -667,7 +667,7 @@ export class ChartManager {
       if (this._needsRender || this._forceRender) {
         this.render();
         this._needsRender = false;
-        // R-cnn-V2 P11.5a: nach jedem Render pruefen ob sich der sichtbare
+        // nach jedem Render pruefen ob sich der sichtbare
         // Range geaendert hat. Wenn ja emit('viewChanged').
         this._maybeEmitViewChanged();
       }
@@ -676,7 +676,7 @@ export class ChartManager {
     this.animationFrameId = requestAnimationFrame(loop);
   }
 
-  // ── R-cnn-V2 P11.5a: viewChanged-Emit ─────────────────────────────────────
+  // ── viewChanged-Emit ─────────────────────────────────────
   /** Liefert die main-Pane oder undefined. Fuer priceRange-Lookup. */
   private _getMainPane(): Pane | undefined {
     return this.panes.find((p) => p.id === 'main');

@@ -4,7 +4,7 @@
 
 ZChart renders candlestick charts on a raw HTML5 canvas at 60 fps: unlimited panes with their own price scales (multi-Y-axis included), nice ticks, drawing tools, indicator registries, touch gestures (pinch-zoom, long-press) and a theme system. No framework required — plain TypeScript, one canvas element.
 
-> **v2.0.0 is a complete rebuild.** The engine matured for months inside a production trading dashboard (394 commits since v1) and has now been extracted back into this repository. The v1 code is preserved under the tag [`v1-legacy`](../../tree/v1-legacy); the v1 API docs no longer apply.
+> **v2.0.0 is a complete rebuild.** The engine matured for months inside a private production application (several hundred commits since v1) and has now been extracted back into this repository. The v1 code is preserved under the tag [`v1-legacy`](../../tree/v1-legacy); the v1 API docs no longer apply.
 
 ## Features
 
@@ -86,7 +86,7 @@ src/
   themes/      theme registry + dark/light presets
   utils/       formatters, geometry, time formatting
 demo/          vanilla demo (npm run dev)
-docs/          roadmap + workflow (development process)
+docs/legacy/   v1 documentation (historical)
 ```
 
 ## License

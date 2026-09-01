@@ -1,4 +1,4 @@
-// src/zchart/api/serialization/__tests__/annotations.roundtrip.test.ts
+// src/api/serialization/__tests__/annotations.roundtrip.test.ts
 // Version: 1.0.0 | Updated: 2026-06-10 | By: Agent
 // Round-Trip-Tests für die annotations-Familie: import(export(node)) muss pro Tool
 // verlustfrei sein — schließt die F5-Persistenz-Lücke testseitig ab.

@@ -46,7 +46,7 @@ export class PriceScale {
   public tickProvider: ((scale: PriceScale) => number[]) | null = null;
 
   /**
-   * AR-Polish 12 (Analyse-Statistik, Backtest-Report): Eigener Label-Formatter
+   * Eigener Label-Formatter
    * fuer die Achsen-Ticks dieser Scale (z.B. „50 %", „1.960"). Gesetzt → YAxisNode
    * nutzt ihn statt Preis-/Prozent-Format. Bewusst nur fuer Ticks (Crosshair-
    * Label bleibt Preisformat).

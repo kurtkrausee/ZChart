@@ -3,7 +3,9 @@
   "compilerOptions": {
     "declaration": true,
     "emitDeclarationOnly": true,
-    "outDir": "dist"
+    "outDir": "dist",
+    "rootDir": "src"
   },
+  "include": ["src"],
   "exclude": ["src/**/*.test.ts", "src/**/__tests__/**"]
 }

@@ -1,4 +1,4 @@
-// zchart/themes/presets/lightPro.ts
+// src/themes/presets/lightPro.ts
 // Version: 2.0.0 | Updated: 2026-05-05 | By: Agent
 // P2: Light Pro — Light theme for daytime trading
 

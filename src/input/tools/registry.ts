@@ -302,3 +302,35 @@ function onDefaultFinalize(
 }
 
 
+
+// ============================================================================
+// AMEND — nachträgliches Ergänzen einer Registrierung (Plugin-Pakete)
+// ============================================================================
+
+/**
+ * Ergänzt/überschreibt einzelne Hooks einer bereits registrierten Tool-Config
+ * (z.B. onLivePreview aus einem Plugin-Paket), ohne die Registrierung zu
+ * duplizieren. Gibt false zurück, wenn der Mode unbekannt ist.
+ */
+export function amendTool(mode: string, patch: Partial<ToolConfig>): boolean {
+  const cfg = toolRegistry.get(mode);
+  if (!cfg) return false;
+  toolRegistry.set(mode, { ...cfg, ...patch, mode: cfg.mode });
+  return true;
+}
+
+// ============================================================================
+// DOUBLE-CLICK DISPATCH — Multi-Click-Tools (steps: -1) finalisieren
+// ============================================================================
+
+/**
+ * Doppelklick/Double-Tap beendet ein laufendes Multi-Click-Tool über dessen
+ * onFinalize-Hook. Gibt true zurück, wenn ein Tool finalisiert wurde.
+ */
+export function dispatchDoubleClick(mode: string, logical: LogicalCoordinates, im: InputManager): boolean {
+  const cfg = toolRegistry.get(mode);
+  if (!cfg || cfg.steps !== -1 || !im.activeDrawingNode || !cfg.onFinalize) return false;
+  cfg.onFinalize(im.activeDrawingNode, logical, im);
+  resetIfStuck(im);
+  return true;
+}
