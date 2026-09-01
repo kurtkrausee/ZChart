@@ -11,7 +11,7 @@ export { Pane } from './core/Pane';
 export type { CandleData } from './data/DataStore';
 export type { ChartConfig, DeepPartial } from './core/ChartOptions';
 export type { VisualSettings } from './core/VisualSettings';
-export type { DrawableShape, DrawableShapeType, LogicalPoint } from './types/DrawableShape';
+export type { DrawableShape, DrawableShapeType, LogicalPoint, VisibilityTimeframes } from './types/DrawableShape';
 
 // Basisklassen für eigene Erweiterungen (Plugin-Zielbild: Pro/Dritte leiten hiervon ab)
 export { SceneNode } from './nodes/core/SceneNode';
@@ -97,3 +97,4 @@ export { LastPriceLineNode } from './nodes/core/LastPriceLineNode';
 export { DayHighLowNode } from './nodes/core/DayHighLowNode';
 export { RangeHighlightNode } from './nodes/core/RangeHighlightNode';
 export { CrosshairNode } from './nodes/core/CrosshairNode';
+export * from './indicators/calc/movingAverages';
