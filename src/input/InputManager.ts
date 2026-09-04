@@ -1538,7 +1538,7 @@ private onPointerUp = (e: PointerEvent) => {
         for (let i = this.manager.drawingManager.shapes.length - 1; i >= 0; i--) {
           const shape = this.manager.drawingManager.shapes[i];
           if (shape.isVisible === false) continue;
-          if (shape.hitTest(x, y, this.timeScale, priceScale) && dispatchDoubleClickHit(shape, lg, this)) return;
+          if (shape.hitTest(x, y, this.timeScale, priceScale) && dispatchDoubleClickHit(shape, lg, this, { clientX: e.clientX, clientY: e.clientY })) return;
         }
       }
     }

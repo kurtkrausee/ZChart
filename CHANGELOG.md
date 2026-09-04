@@ -36,3 +36,8 @@ Früher Prototyp (April 2026).
 - Tool-Registry: `onDoubleClickHit`-Hook (Doppelklick auf fertige Zeichnung, z.B. Tabellen-Zell-Editor)
 - `setLayerVisible(idOrRole, visible)` — Serie/Indikatoren/Zeichnungen ein-/ausblenden
 - `upsertCandle(candle)` — Live-Tick-Pfad für WebSocket-Feeds (update/append), Event `candleUpserted`
+
+## [2.3.0] - 2026-09-04
+### Added
+- `getCanvasElement()` für UI-Schichten (Inline-Editoren positionieren)
+- `onDoubleClickHit`-Hook erhält optional die Client-Koordinaten des Klicks
