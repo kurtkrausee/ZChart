@@ -268,6 +268,7 @@ export class OverlayIndicatorController {
         }
         this.manager.addToMainLayerOrder(`indicator-${id}`);
         this.attached.set(id, { dataKey, color, lineWidth, params, lineDash, lines });
+        this.manager.markDirty(); // sofort sichtbar (ohne UI-Layer kein Folge-Render)
     }
 
     public remove(id: string): void {
@@ -278,6 +279,7 @@ export class OverlayIndicatorController {
             // Composite-Overlays (Ribbons/Pivots) haben mehrere Nodes mit gleicher role.
         }
         this.manager.removeFromMainLayerOrder(`indicator-${id}`);
+        this.manager.markDirty();
 
         const cleanup = registry.get(id)?.cleanupSeriesKeys;
         if (!cleanup) return;
