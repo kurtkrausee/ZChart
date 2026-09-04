@@ -54,7 +54,7 @@ export interface ToolConfig {
 
   /** Doppelklick auf eine FERTIGE Zeichnung dieses Typs (z.B. Tabellen-Zelle
    * editieren). true = behandelt (Engine-Defaults wie Achsen-Fit entfallen). */
-  onDoubleClickHit?: (shape: DrawableShape, logical: LogicalCoordinates, im: InputManager) => boolean;
+  onDoubleClickHit?: (shape: DrawableShape, logical: LogicalCoordinates, im: InputManager, ev?: { clientX: number; clientY: number }) => boolean;
 }
 
 /** Internal registry map — private, not exported. */
@@ -343,8 +343,8 @@ export function dispatchDoubleClick(mode: string, logical: LogicalCoordinates, i
  * Doppelklick auf eine bestehende Zeichnung: Hook des zugehoerigen Tools
  * (Lookup ueber shapeType, Mode-Konvention 'draw_<shapeType>'). true = behandelt.
  */
-export function dispatchDoubleClickHit(shape: DrawableShape, logical: LogicalCoordinates, im: InputManager): boolean {
+export function dispatchDoubleClickHit(shape: DrawableShape, logical: LogicalCoordinates, im: InputManager, ev?: { clientX: number; clientY: number }): boolean {
   const cfg = toolRegistry.get('draw_' + shape.shapeType);
   if (!cfg || !cfg.onDoubleClickHit) return false;
-  return cfg.onDoubleClickHit(shape, logical, im);
+  return cfg.onDoubleClickHit(shape, logical, im, ev);
 }

@@ -17,7 +17,7 @@ describe('ZG-C1 — Dblclick-Hit-Hook & Options', () => {
         amendTool('draw_zg_test', { onDoubleClickHit: hook });
         const shape = { shapeType: 'zg_test', id: 'a1' } as unknown as DrawableShape;
         expect(dispatchDoubleClickHit(shape, logical, im)).toBe(true);
-        expect(hook).toHaveBeenCalledWith(shape, logical, im);
+        expect(hook).toHaveBeenCalledWith(shape, logical, im, undefined);
     });
 
     it('ohne Hook oder unbekannter Typ → false', () => {

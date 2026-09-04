@@ -563,6 +563,9 @@ export class ChartManager {
 
   // ── Main Layer Order helpers ──
 
+  /** Canvas-Element fuer UI-Schichten (Positionierung von Inline-Editoren etc.). */
+  public getCanvasElement(): HTMLCanvasElement { return this.canvas; }
+
   public getMainLayerOrder(): string[] { return [...this.mainLayerOrder]; }
 
   public setMainLayerOrder(order: string[]): void {
