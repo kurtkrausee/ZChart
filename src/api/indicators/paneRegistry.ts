@@ -98,7 +98,19 @@ export function str<T extends string>(p: PaneParams, key: string, fallback: T): 
 // ---------------------------------------------------------------------------
 
 export class PaneIndicatorController {
-    constructor(private manager: ChartManager) {}
+    /** Angehängte Panes (id → params) für Re-Calc nach setData (TF-/Symbolwechsel). */
+    private attached = new Map<string, PaneParams>();
+
+    constructor(private manager: ChartManager) {
+        this.manager.on('dataReplaced', () => {
+            let any = false;
+            for (const [id, params] of this.attached) {
+                registry.get(id)?.calculate?.(this.manager.dataStore, params);
+                any = true;
+            }
+            if (any) this.manager.markDirty();
+        });
+    }
 
     public add(id: string, params: PaneParams = {}, style: IndicatorLineStyleOptions = {}): void {
         const def = registry.get(id);
@@ -122,11 +134,13 @@ export class PaneIndicatorController {
             pane.addNode(node);
         }
         this.manager.addPane(pane);
+        this.attached.set(id, params);
         this.manager.markDirty(); // sofort sichtbar (ohne UI-Layer kein Folge-Render)
     }
 
     public remove(id: string): void {
         const pane = this.manager.getPanes().find(p => p.id === id);
+        this.attached.delete(id);
         if (pane && pane.heightWeight > 0) { this.manager.togglePaneVisibility(id); this.manager.markDirty(); }
     }
 }

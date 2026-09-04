@@ -45,3 +45,7 @@ Früher Prototyp (April 2026).
 ## [2.3.1] - 2026-09-04
 ### Fixed
 - Indikator hinzufügen/entfernen rendert sofort (`markDirty` in Overlay-/Pane-Controller) — vorher erschien der Indikator erst bei der nächsten Interaktion
+
+## [2.3.2] - 2026-09-04
+### Fixed
+- Indikator-Panes rechnen nach `setData` (Timeframe-/Symbolwechsel) automatisch neu — wie Overlays
