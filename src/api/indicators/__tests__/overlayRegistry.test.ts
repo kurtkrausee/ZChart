@@ -29,6 +29,7 @@ function mockManager(existingRoles: string[] = []) {
         getPanes: () => [mainPane],
         on: vi.fn(),
         addToMainLayerOrder: vi.fn(),
+        markDirty: vi.fn(),
         removeFromMainLayerOrder: vi.fn(),
         dataStore: {
             calculateSMA: vi.fn(),

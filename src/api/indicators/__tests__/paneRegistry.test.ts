@@ -30,6 +30,7 @@ function mockManager(existingPanes: Array<{ id: string; heightWeight: number }> 
             calculateATR: vi.fn(),
             calculateADX: vi.fn(),
         },
+        markDirty: vi.fn(),
     };
     return { manager: manager as unknown as ChartManager, raw: manager, added };
 }

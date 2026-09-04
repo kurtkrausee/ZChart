@@ -41,3 +41,7 @@ Früher Prototyp (April 2026).
 ### Added
 - `getCanvasElement()` für UI-Schichten (Inline-Editoren positionieren)
 - `onDoubleClickHit`-Hook erhält optional die Client-Koordinaten des Klicks
+
+## [2.3.1] - 2026-09-04
+### Fixed
+- Indikator hinzufügen/entfernen rendert sofort (`markDirty` in Overlay-/Pane-Controller) — vorher erschien der Indikator erst bei der nächsten Interaktion

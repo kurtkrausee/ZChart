@@ -122,10 +122,11 @@ export class PaneIndicatorController {
             pane.addNode(node);
         }
         this.manager.addPane(pane);
+        this.manager.markDirty(); // sofort sichtbar (ohne UI-Layer kein Folge-Render)
     }
 
     public remove(id: string): void {
         const pane = this.manager.getPanes().find(p => p.id === id);
-        if (pane && pane.heightWeight > 0) this.manager.togglePaneVisibility(id);
+        if (pane && pane.heightWeight > 0) { this.manager.togglePaneVisibility(id); this.manager.markDirty(); }
     }
 }
