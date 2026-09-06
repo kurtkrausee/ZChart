@@ -399,7 +399,7 @@ export class ChartManager {
       ? this.panes.find(p => p.id === paneId)
       : this.panes.find(p => p.id === 'main');
     if (pane) {
-      this.isAutoScaling = false;
+      pane.resolveScale(scaleId).autoScale = false;
       pane.resolveScale(scaleId).zoom(deltaY);
       this._needsRender = true;
     }
@@ -411,7 +411,7 @@ export class ChartManager {
       ? this.panes.find(p => p.id === paneId)
       : this.panes.find(p => p.id === 'main');
     if (pane) {
-      this.isAutoScaling = false;
+      pane.resolveScale(scaleId).autoScale = false;
       pane.resolveScale(scaleId).zoomAnchored(deltaY, anchorPrice);
       this._needsRender = true;
     }
@@ -424,7 +424,7 @@ export class ChartManager {
       ? this.panes.find(p => p.id === paneId)
       : this.panes.find(p => p.id === 'main');
     if (pane) {
-      this.isAutoScaling = false;
+      pane.resolveScale(scaleId).autoScale = false;
       pane.resolveScale(scaleId).zoomFactorAnchored(rangeFactor, anchorPrice);
       this._needsRender = true;
     }
@@ -436,7 +436,7 @@ export class ChartManager {
       ? this.panes.find(p => p.id === paneId)
       : this.panes.find(p => p.id === 'main');
     if (pane) {
-      this.isAutoScaling = false;
+      pane.resolveScale(scaleId).autoScale = false;
       pane.resolveScale(scaleId).pan(deltaY);
       this._needsRender = true;
     }
@@ -474,12 +474,21 @@ export class ChartManager {
     const leftBars = Math.floor(visibleCandles * Math.max(0, Math.min(0.9, leftMarginFraction)));
     this.timeScale.scrollOffset = leftBars * this.timeScale.candleWidth;
     this.isAutoScaling = true;
+    this.enableAutoScaleAll();
     this._needsRender = true;
+  }
+
+  /** Auto-Fit aller Preis-Scales reaktivieren (nach Symbol-/TF-Wechsel, Reset). */
+  private enableAutoScaleAll() {
+    for (const pane of this.panes) {
+      for (const scale of pane.priceScales.values()) scale.autoScale = true;
+    }
   }
 
   /** Re-enable auto-scaling for the Y axis */
   public resetYScale() {
     this.isAutoScaling = true;
+    this.enableAutoScaleAll();
     this._needsRender = true;
   }
 
@@ -803,8 +812,9 @@ export class ChartManager {
     const visibleCandles = Math.floor(this.timeScale.width / this.timeScale.candleWidth);
     this.timeScale.scrollOffset = -(totalCandles + rightBars - visibleCandles) * this.timeScale.candleWidth;
     // Re-enable Y auto-scaling so new symbol/timeframe fits its own price range
-    // (prevents AAPL $280 leftover min/max from hiding DAX at 18.000).
+    // (prevents leftover min/max of the previous symbol from hiding the new one).
     this.isAutoScaling = true;
+    this.enableAutoScaleAll();
     this._needsRender = true;
   }
 
@@ -947,9 +957,8 @@ export class ChartManager {
 
       this.yAxisNode.draw(this.ctx, paneHeight, pane, width, paneTop, this.options, this._axisColumns);
       
-      if (this.isAutoScaling) {
-        this.autoScaleEngine.scalePane(pane, visibleData, this.options);
-      }
+      // Pro-Scale-Autoscale: Engine ueberspringt manuell fixierte Scales selbst.
+      this.autoScaleEngine.scalePane(pane, visibleData, this.options);
 
       this.ctx.save();
       this.ctx.beginPath();

@@ -10,6 +10,9 @@ export class PriceScale {
   public height: number = 0;
   public minPrice: number = 0;
   public maxPrice: number = 100;
+  /** false = User hat diese Achse manuell gezoomt/verschoben — Auto-Fit pausiert
+   *  nur fuer DIESE Scale (resetYScale/setData reaktivieren). */
+  public autoScale: boolean = true;
 
   // NEU: Diese Werte brauchen wir für den Area-Fill und das Grid
   public visibleMin: number = 0;

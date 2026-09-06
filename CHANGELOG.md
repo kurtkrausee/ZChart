@@ -49,3 +49,9 @@ Früher Prototyp (April 2026).
 ## [2.3.2] - 2026-09-04
 ### Fixed
 - Indikator-Panes rechnen nach `setData` (Timeframe-/Symbolwechsel) automatisch neu — wie Overlays
+
+## [2.4.0] - 2026-09-06
+### Changed
+- **Y-Autoscale pro Achse statt global**: Manuelles Zoomen/Ziehen einer Preisachse pausiert den Auto-Fit nur noch für DIESE Achse — bisher froren dabei alle (auch später hinzugefügte) Indikator-Panes auf ihrer Default-Achse ein und wirkten als „flache Linie am unteren Rand". `resetYScale`/`setData`/`scrollToStart` reaktivieren alle Achsen.
+### Added
+- `AutoScaleEngine` im Public-Barrel (Plugin-/Test-Autoren)

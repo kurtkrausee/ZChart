@@ -78,6 +78,7 @@ export type { AxisTick } from './math/TickEngine';
 // ── Mechanik-Exporte für Plugin-Autoren (ZChart Pro, Dritt-Plugins) ──────────
 export { TimeScale } from './math/TimeScale';
 export { PriceScale } from './math/PriceScale';
+export { AutoScaleEngine } from './math/AutoScaleEngine';
 export type { YAxisPosition } from './math/PriceScale';
 export * from './math/TPOEngine';
 export * from './utils/geometry';

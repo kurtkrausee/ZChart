@@ -52,6 +52,9 @@ export class AutoScaleEngine {
       return;
     }
 
+    // Manuell gezoomte/verschobene Scale: Auto-Fit pausiert (nur diese Scale).
+    if (scale.autoScale === false) return;
+
     if (visibleData.length === 0) return;
 
     // ZV10-P7b: nur die an diese Scale gebundenen Nodes zählen.
