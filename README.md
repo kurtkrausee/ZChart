@@ -86,6 +86,7 @@ src/
   themes/      theme registry + dark/light presets
   utils/       formatters, geometry, time formatting
 demo/          vanilla demo (npm run dev)
+docs/ROADMAP.md  public roadmap (data-source adapters incl. zDB, chart types)
 docs/legacy/   v1 documentation (historical)
 ```
 
